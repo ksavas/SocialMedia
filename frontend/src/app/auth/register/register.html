@@ -1,0 +1,35 @@
+<div class="register-container">
+  <div class="register-card">
+    <h2>Register</h2>
+
+    <form (ngSubmit)="onSubmit()">
+      <div class="form-group">
+        <label>User Name</label>
+        <input type="text" [(ngModel)]="form.username" name="username" required />
+      </div>
+
+      <div class="form-group">
+        <label>E-mail</label>
+        <input type="email" [(ngModel)]="form.email" name="email" required />
+      </div>
+
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" [(ngModel)]="form.password" name="password" required />
+      </div>
+
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" [(ngModel)]="form.displayName" name="displayName" required />
+      </div>
+
+      @if (errorMessage) {
+        <div class="error">{{ errorMessage }}</div>
+      }
+
+      <button type="submit" [disabled]="isLoading">
+        {{ isLoading ? 'Registration in progress...' : 'Register' }}
+      </button>
+    </form>
+  </div>
+</div>
