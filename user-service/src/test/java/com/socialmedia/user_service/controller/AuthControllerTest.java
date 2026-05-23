@@ -12,6 +12,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 
+import com.socialmedia.user_service.dto.OAuthRequest;
+import com.socialmedia.user_service.entity.Provider;
+import com.socialmedia.user_service.service.OAuthService;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -30,6 +34,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private UserService userService;
+
+    @MockitoBean
+    private OAuthService oAuthService;
 
     @Test
     void register_shouldReturn201_whenValidRequest() throws Exception {
@@ -73,5 +80,37 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void googleAuth_shouldReturn200_whenValidIdToken() throws Exception {
+        OAuthRequest request = new OAuthRequest("valid.google.token");
+        AuthResponse authResponse = new AuthResponse("jwt.token.here", "testUser");
+
+        when(oAuthService.authenticate(Provider.GOOGLE, "valid.google.token"))
+                .thenReturn(authResponse);
+
+        mockMvc.perform(post("/api/auth/oauth/google")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").value("jwt.token.here"))
+                .andExpect(jsonPath("$.username").value("testUser"));
+    }
+
+    @Test
+    void microsoftAuth_shouldReturn200_whenValidIdToken() throws Exception {
+        OAuthRequest request = new OAuthRequest("valid.microsoft.token");
+        AuthResponse authResponse = new AuthResponse("jwt.token.here", "testUser");
+
+        when(oAuthService.authenticate(Provider.MICROSOFT, "valid.microsoft.token"))
+                .thenReturn(authResponse);
+
+        mockMvc.perform(post("/api/auth/oauth/microsoft")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").value("jwt.token.here"))
+                .andExpect(jsonPath("$.username").value("testUser"));
     }
 }

@@ -55,8 +55,8 @@ class OAuthServiceTest {
 
         validGoogleUserInfo = new OAuthUserInfo(
                 "google_user_id_123",
-                "ahmet@gmail.com",
-                "Ahmet Yilmaz",
+                "testUser@gmail.com",
+                "Test Name",
                 true
         );
     }
@@ -67,7 +67,7 @@ class OAuthServiceTest {
         when(googleTokenVerifier.verify(idToken)).thenReturn(validGoogleUserInfo);
         when(userRepository.findByProviderAndProviderId(Provider.GOOGLE, "google_user_id_123"))
                 .thenReturn(Optional.empty());
-        when(userRepository.findByEmail("ahmet@gmail.com")).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("testUser@gmail.com")).thenReturn(Optional.empty());
         when(userRepository.existsByUsername(anyString())).thenReturn(false);
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
             User user = invocation.getArgument(0);
@@ -80,9 +80,9 @@ class OAuthServiceTest {
 
         assertThat(response).isNotNull();
         assertThat(response.token()).isEqualTo("jwt.token.here");
-        assertThat(response.username()).isEqualTo("ahmet");
+        assertThat(response.username()).isEqualTo("testUser");
         verify(userRepository).save(argThat(user ->
-                user.getEmail().equals("ahmet@gmail.com") &&
+                user.getEmail().equals("testUser@gmail.com") &&
                         user.getProvider() == Provider.GOOGLE &&
                         user.getProviderId().equals("google_user_id_123") &&
                         user.getPassword() == null
@@ -94,9 +94,9 @@ class OAuthServiceTest {
         String idToken = "valid.google.token";
         User existingUser = User.builder()
                 .id(UUID.randomUUID())
-                .username("ahmet")
-                .email("ahmet@gmail.com")
-                .displayName("Ahmet Yilmaz")
+                .username("testUser")
+                .email("testUser@gmail.com")
+                .displayName("Test Name")
                 .provider(Provider.GOOGLE)
                 .providerId("google_user_id_123")
                 .build();
@@ -109,7 +109,7 @@ class OAuthServiceTest {
         AuthResponse response = oAuthService.authenticate(Provider.GOOGLE, idToken);
 
         assertThat(response.token()).isEqualTo("jwt.token.here");
-        assertThat(response.username()).isEqualTo("ahmet");
+        assertThat(response.username()).isEqualTo("testUser");
         verify(userRepository, never()).save(any(User.class));
     }
 
@@ -118,8 +118,8 @@ class OAuthServiceTest {
         String idToken = "valid.google.token";
         User localUser = User.builder()
                 .id(UUID.randomUUID())
-                .username("ahmet")
-                .email("ahmet@gmail.com")
+                .username("testUser")
+                .email("testUser@gmail.com")
                 .password("hashedPassword")
                 .provider(Provider.LOCAL)
                 .build();
@@ -127,7 +127,7 @@ class OAuthServiceTest {
         when(googleTokenVerifier.verify(idToken)).thenReturn(validGoogleUserInfo);
         when(userRepository.findByProviderAndProviderId(Provider.GOOGLE, "google_user_id_123"))
                 .thenReturn(Optional.empty());
-        when(userRepository.findByEmail("ahmet@gmail.com")).thenReturn(Optional.of(localUser));
+        when(userRepository.findByEmail("testUser@gmail.com")).thenReturn(Optional.of(localUser));
 
         assertThatThrownBy(() -> oAuthService.authenticate(Provider.GOOGLE, idToken))
                 .isInstanceOf(EmailAlreadyRegisteredException.class)
@@ -152,8 +152,8 @@ class OAuthServiceTest {
         String idToken = "valid.google.token";
         OAuthUserInfo unverifiedUserInfo = new OAuthUserInfo(
                 "google_user_id_123",
-                "ahmet@gmail.com",
-                "Ahmet Yilmaz",
+                "testUser@gmail.com",
+                "Test Name",
                 false
         );
         when(googleTokenVerifier.verify(idToken)).thenReturn(unverifiedUserInfo);
@@ -169,14 +169,14 @@ class OAuthServiceTest {
         String idToken = "valid.microsoft.token";
         OAuthUserInfo microsoftUserInfo = new OAuthUserInfo(
                 "microsoft_user_id_456",
-                "ahmet@outlook.com",
-                "Ahmet Yilmaz",
+                "testUser@outlook.com",
+                "Test Name",
                 true
         );
         when(microsoftTokenVerifier.verify(idToken)).thenReturn(microsoftUserInfo);
         when(userRepository.findByProviderAndProviderId(Provider.MICROSOFT, "microsoft_user_id_456"))
                 .thenReturn(Optional.empty());
-        when(userRepository.findByEmail("ahmet@outlook.com")).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("testUser@outlook.com")).thenReturn(Optional.empty());
         when(userRepository.existsByUsername(anyString())).thenReturn(false);
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
             User user = invocation.getArgument(0);
@@ -188,9 +188,9 @@ class OAuthServiceTest {
         AuthResponse response = oAuthService.authenticate(Provider.MICROSOFT, idToken);
 
         assertThat(response.token()).isEqualTo("jwt.token.here");
-        assertThat(response.username()).isEqualTo("ahmet");
+        assertThat(response.username()).isEqualTo("testUser");
         verify(userRepository).save(argThat(user ->
-                user.getEmail().equals("ahmet@outlook.com") &&
+                user.getEmail().equals("testUser@outlook.com") &&
                         user.getProvider() == Provider.MICROSOFT &&
                         user.getProviderId().equals("microsoft_user_id_456") &&
                         user.getPassword() == null
@@ -202,15 +202,15 @@ class OAuthServiceTest {
         String idToken = "valid.microsoft.token";
         OAuthUserInfo microsoftUserInfo = new OAuthUserInfo(
                 "microsoft_user_id_456",
-                "ahmet@outlook.com",
-                "Ahmet Yilmaz",
+                "testUser@outlook.com",
+                "Test Name",
                 true
         );
         User existingUser = User.builder()
                 .id(UUID.randomUUID())
-                .username("ahmet")
-                .email("ahmet@outlook.com")
-                .displayName("Ahmet Yilmaz")
+                .username("testUser")
+                .email("testUser@outlook.com")
+                .displayName("Test Name")
                 .provider(Provider.MICROSOFT)
                 .providerId("microsoft_user_id_456")
                 .build();
@@ -223,7 +223,7 @@ class OAuthServiceTest {
         AuthResponse response = oAuthService.authenticate(Provider.MICROSOFT, idToken);
 
         assertThat(response.token()).isEqualTo("jwt.token.here");
-        assertThat(response.username()).isEqualTo("ahmet");
+        assertThat(response.username()).isEqualTo("testUser");
         verify(userRepository, never()).save(any(User.class));
     }
 
@@ -232,14 +232,14 @@ class OAuthServiceTest {
         String idToken = "valid.microsoft.token";
         OAuthUserInfo microsoftUserInfo = new OAuthUserInfo(
                 "microsoft_user_id_456",
-                "ahmet@outlook.com",
-                "Ahmet Yilmaz",
+                "testUser@outlook.com",
+                "Test Name",
                 true
         );
         User localUser = User.builder()
                 .id(UUID.randomUUID())
-                .username("ahmet")
-                .email("ahmet@outlook.com")
+                .username("testUser")
+                .email("testUser@outlook.com")
                 .password("hashedPassword")
                 .provider(Provider.LOCAL)
                 .build();
@@ -247,7 +247,7 @@ class OAuthServiceTest {
         when(microsoftTokenVerifier.verify(idToken)).thenReturn(microsoftUserInfo);
         when(userRepository.findByProviderAndProviderId(Provider.MICROSOFT, "microsoft_user_id_456"))
                 .thenReturn(Optional.empty());
-        when(userRepository.findByEmail("ahmet@outlook.com")).thenReturn(Optional.of(localUser));
+        when(userRepository.findByEmail("testUser@outlook.com")).thenReturn(Optional.of(localUser));
 
         assertThatThrownBy(() -> oAuthService.authenticate(Provider.MICROSOFT, idToken))
                 .isInstanceOf(EmailAlreadyRegisteredException.class)
@@ -272,8 +272,8 @@ class OAuthServiceTest {
         String idToken = "valid.microsoft.token";
         OAuthUserInfo unverifiedUserInfo = new OAuthUserInfo(
                 "microsoft_user_id_456",
-                "ahmet@outlook.com",
-                "Ahmet Yilmaz",
+                "testUser@outlook.com",
+                "Test Name",
                 false
         );
         when(microsoftTokenVerifier.verify(idToken)).thenReturn(unverifiedUserInfo);
