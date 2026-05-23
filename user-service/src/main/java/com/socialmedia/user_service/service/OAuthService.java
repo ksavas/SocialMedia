@@ -7,31 +7,48 @@ import com.socialmedia.user_service.entity.User;
 import com.socialmedia.user_service.exception.EmailAlreadyRegisteredException;
 import com.socialmedia.user_service.exception.InvalidTokenException;
 import com.socialmedia.user_service.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class OAuthService {
 
-    private final GoogleTokenVerifier googleTokenVerifier;
+    private final Map<Provider, OAuthTokenVerifier> verifiers;
     private final UserRepository userRepository;
     private final JwtService jwtService;
 
-    public AuthResponse googleAuth(String idToken) {
-        OAuthUserInfo userInfo = googleTokenVerifier.verify(idToken);
+    public OAuthService(
+            List<OAuthTokenVerifier> verifierList,
+            UserRepository userRepository,
+            JwtService jwtService
+    ) {
+        this.verifiers = verifierList.stream()
+                .collect(Collectors.toMap(OAuthTokenVerifier::getProvider, v -> v));
+        this.userRepository = userRepository;
+        this.jwtService = jwtService;
+    }
 
-        if (!userInfo.emailVerified()) {
-            throw new InvalidTokenException("Email not verified by Google");
+    public AuthResponse authenticate(Provider provider, String idToken) {
+        OAuthTokenVerifier verifier = verifiers.get(provider);
+        if (verifier == null) {
+            throw new InvalidTokenException("Unsupported provider: " + provider);
         }
 
-        Optional<User> existingGoogleUser = userRepository
-                .findByProviderAndProviderId(Provider.GOOGLE, userInfo.providerId());
+        OAuthUserInfo userInfo = verifier.verify(idToken);
 
-        if (existingGoogleUser.isPresent()) {
-            User user = existingGoogleUser.get();
+        if (!userInfo.emailVerified()) {
+            throw new InvalidTokenException("Email not verified by " + provider);
+        }
+
+        Optional<User> existingUser = userRepository
+                .findByProviderAndProviderId(provider, userInfo.providerId());
+
+        if (existingUser.isPresent()) {
+            User user = existingUser.get();
             String token = jwtService.generateToken(user);
             return new AuthResponse(token, user.getUsername());
         }
@@ -49,7 +66,7 @@ public class OAuthService {
                 .email(userInfo.email())
                 .displayName(userInfo.name())
                 .password(null)
-                .provider(Provider.GOOGLE)
+                .provider(provider)
                 .providerId(userInfo.providerId())
                 .build();
 
