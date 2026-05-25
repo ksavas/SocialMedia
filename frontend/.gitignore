@@ -38,6 +38,12 @@ testem.log
 /typings
 __screenshots__/
 
+# Generated environment files (contain secrets)
+/src/environments/environment.ts
+
+# Local environment variables (contains secrets)
+.env
+
 # System files
 .DS_Store
 Thumbs.db
