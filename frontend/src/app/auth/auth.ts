@@ -25,4 +25,8 @@ export class AuthService {
   register(request: RegisterRequest): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${this.apiUrl}/register`, request);
   }
+
+  oauthLogin(provider: 'google', idToken: string): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>(`${this.apiUrl}/oauth/${provider}`, { idToken });
+  }
 }

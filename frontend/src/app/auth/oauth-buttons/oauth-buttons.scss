@@ -1,0 +1,43 @@
+.oauth-section {
+  margin-top: 1rem;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  margin: 1.25rem 0;
+  color: #aaa;
+  font-size: 0.85rem;
+
+  &::before,
+  &::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #ddd;
+  }
+
+  span {
+    padding: 0 0.75rem;
+  }
+}
+
+.google-btn-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.error {
+  color: #d32f2f;
+  font-size: 0.875rem;
+  margin-top: 0.75rem;
+  text-align: center;
+}
+
+.loading {
+  color: #555;
+  font-size: 0.875rem;
+  margin-top: 0.75rem;
+  text-align: center;
+}
