@@ -12,6 +12,7 @@ export class OAuthProviderService {
       response_type: 'id_token',
       scope: 'openid email profile',
       nonce,
+      prompt: 'select_account',
     });
     window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
   }
