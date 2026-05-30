@@ -1,13 +1,12 @@
 import { Routes } from '@angular/router';
 import { Register } from './auth/register/register';
-import { Login } from './auth/login/login';
 import { OAuthCallback } from './auth/callback/callback';
 import { Feed } from './feed/feed';
+import { authGuard, guestGuard } from './auth/guards';
 
 export const routes: Routes = [
-  { path: 'login', component: Login },
-  { path: 'register', component: Register },
+  { path: 'register', component: Register, canActivate: [guestGuard] },
   { path: 'auth/callback', component: OAuthCallback },
-  { path: 'feed', component: Feed },
-  { path: '', redirectTo: 'login', pathMatch: 'full' },
+  { path: 'feed', component: Feed, canActivate: [authGuard] },
+  { path: '', redirectTo: 'register', pathMatch: 'full' },
 ];
