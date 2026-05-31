@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -17,20 +17,35 @@ export class Register {
   private readonly authState = inject(AuthStateService);
   private readonly router = inject(Router);
 
-  form: RegisterRequest = { username: '', email: '', password: '', displayName: '' };
+  readonly mode = signal<'register' | 'login'>('register');
+
+  registerForm: RegisterRequest = { username: '', email: '', password: '', displayName: '' };
+  loginIdentifier = '';
+  loginPassword = '';
+
   errorMessage = '';
   isLoading = false;
+
+  toggleMode(): void {
+    this.mode.update(m => m === 'register' ? 'login' : 'register');
+    this.errorMessage = '';
+  }
 
   onSubmit(): void {
     this.isLoading = true;
     this.errorMessage = '';
-    this.authService.register(this.form).subscribe({
+
+    const request$ = this.mode() === 'register'
+      ? this.authService.register(this.registerForm)
+      : this.authService.login(this.loginIdentifier, this.loginPassword);
+
+    request$.subscribe({
       next: (response) => {
         this.authState.login(response.token, response.username);
         this.router.navigate(['/feed']);
       },
       error: (err) => {
-        this.errorMessage = err.error?.message || 'Registration failed';
+        this.errorMessage = err.error?.message || 'Something went wrong';
         this.isLoading = false;
       },
     });

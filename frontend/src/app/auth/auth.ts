@@ -26,7 +26,11 @@ export class AuthService {
     return this.http.post<AuthResponse>(`${this.apiUrl}/register`, request);
   }
 
-  oauthLogin(provider: 'google', idToken: string): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${this.apiUrl}/oauth/${provider}`, { idToken });
+  login(username: string, password: string): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>(`${this.apiUrl}/login`, { provider: 'LOCAL', username, password });
+  }
+
+  oauthLogin(provider: 'GOOGLE' | 'MICROSOFT', idToken: string): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>(`${this.apiUrl}/login`, { provider, idToken });
   }
 }
