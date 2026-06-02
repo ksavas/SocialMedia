@@ -23,7 +23,7 @@ export class OAuthCallback implements OnInit {
     this.authService.oauthLogin('GOOGLE', idToken).subscribe({
       next: (response) => {
         this.authState.login(response.token, response.username);
-        this.router.navigate(['/feed']);
+        this.router.navigate(['/dashboard']);
       },
       error: () => this.router.navigate(['/register']),
     });

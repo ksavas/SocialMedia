@@ -42,7 +42,7 @@ export class Register {
     request$.subscribe({
       next: (response) => {
         this.authState.login(response.token, response.username);
-        this.router.navigate(['/feed']);
+        this.router.navigate(['/dashboard']);
       },
       error: (err) => {
         this.errorMessage = err.error?.message || 'Something went wrong';

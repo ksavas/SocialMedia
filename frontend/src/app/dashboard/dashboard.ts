@@ -1,18 +1,14 @@
 import { Component, inject } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthStateService } from '../auth/auth-state.service';
 
 @Component({
-  selector: 'app-feed',
-  template: `
-    <div style="padding: 2rem">
-      <h2>Feed</h2>
-      <p>Welcome, {{ auth.username() }}!</p>
-      <button (click)="logout()">Logout</button>
-    </div>
-  `,
+  selector: 'app-dashboard',
+  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  templateUrl: './dashboard.html',
+  styleUrl: './dashboard.scss',
 })
-export class Feed {
+export class Dashboard {
   readonly auth = inject(AuthStateService);
   private readonly router = inject(Router);
 
