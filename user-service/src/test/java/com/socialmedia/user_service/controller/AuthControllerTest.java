@@ -41,7 +41,7 @@ class AuthControllerTest {
     @Test
     void register_shouldReturn201_whenValidRequest() throws Exception {
         RegisterRequest request = new RegisterRequest("testuser", "test@example.com", "password123", "Test User");
-        when(userService.register(any())).thenReturn(new AuthResponse("jwt-token", "testuser"));
+        when(userService.register(any())).thenReturn(new AuthResponse("jwt-token", "testuser", "LOCAL"));
 
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -76,7 +76,7 @@ class AuthControllerTest {
     @Test
     void login_shouldReturn200_whenValidLocalCredentials() throws Exception {
         LoginRequest request = new LoginRequest(Provider.LOCAL, "testuser", "password123", null);
-        when(authService.login(any())).thenReturn(new AuthResponse("jwt-token", "testuser"));
+        when(authService.login(any())).thenReturn(new AuthResponse("jwt-token", "testuser", "LOCAL"));
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -89,7 +89,7 @@ class AuthControllerTest {
     @Test
     void login_shouldReturn200_whenValidGoogleToken() throws Exception {
         LoginRequest request = new LoginRequest(Provider.GOOGLE, null, null, "valid.google.token");
-        when(authService.login(any())).thenReturn(new AuthResponse("jwt-token", "testuser"));
+        when(authService.login(any())).thenReturn(new AuthResponse("jwt-token", "testuser", "LOCAL"));
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

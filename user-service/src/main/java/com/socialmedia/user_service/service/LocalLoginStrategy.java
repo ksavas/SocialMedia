@@ -27,10 +27,6 @@ public class LocalLoginStrategy implements LoginStrategy {
                 .or(() -> userRepository.findByEmail(request.username()))
                 .orElseThrow(() -> new InvalidCredentialsException("Invalid credentials"));
 
-        if (user.getProvider() != Provider.LOCAL) {
-            throw new InvalidCredentialsException("Invalid credentials");
-        }
-
         if (!passwordEncoder.matches(request.password(), user.getPassword())) {
             throw new InvalidCredentialsException("Invalid credentials");
         }

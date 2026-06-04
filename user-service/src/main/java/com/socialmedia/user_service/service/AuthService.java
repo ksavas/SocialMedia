@@ -22,6 +22,6 @@ public class AuthService {
                 .orElseThrow(() -> new IllegalArgumentException("Unsupported provider: " + request.provider()));
 
         User user = strategy.resolveUser(request);
-        return new AuthResponse(jwtService.generateToken(user), user.getUsername());
+        return new AuthResponse(jwtService.generateToken(user), user.getUsername(), user.getProvider().name());
     }
 }

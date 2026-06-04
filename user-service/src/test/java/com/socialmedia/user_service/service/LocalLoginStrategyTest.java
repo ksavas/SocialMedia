@@ -113,7 +113,25 @@ class LocalLoginStrategyTest {
     }
 
     @Test
-    void resolveUser_shouldThrow_whenUserIsOAuthAccount() {
+    void resolveUser_shouldReturnUser_whenOAuthUserHasSetPassword() {
+        User oauthUser = User.builder()
+                .id(UUID.randomUUID())
+                .username("kaan")
+                .password("hashed")
+                .provider(Provider.GOOGLE)
+                .build();
+
+        LoginRequest request = new LoginRequest(Provider.LOCAL, "kaan", "secret", null);
+        when(userRepository.findByUsername("kaan")).thenReturn(Optional.of(oauthUser));
+        when(passwordEncoder.matches("secret", "hashed")).thenReturn(true);
+
+        User result = strategy.resolveUser(request);
+
+        assertThat(result.getUsername()).isEqualTo("kaan");
+    }
+
+    @Test
+    void resolveUser_shouldThrow_whenOAuthUserPasswordDoesNotMatch() {
         User oauthUser = User.builder()
                 .id(UUID.randomUUID())
                 .username("kaan")
@@ -121,8 +139,9 @@ class LocalLoginStrategyTest {
                 .provider(Provider.GOOGLE)
                 .build();
 
-        LoginRequest request = new LoginRequest(Provider.LOCAL, "kaan", "secret", null);
+        LoginRequest request = new LoginRequest(Provider.LOCAL, "kaan", "wrong", null);
         when(userRepository.findByUsername("kaan")).thenReturn(Optional.of(oauthUser));
+        when(passwordEncoder.matches("wrong", "random_hash")).thenReturn(false);
 
         assertThatThrownBy(() -> strategy.resolveUser(request))
                 .isInstanceOf(InvalidCredentialsException.class);
