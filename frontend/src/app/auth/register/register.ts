@@ -41,7 +41,7 @@ export class Register {
 
     request$.subscribe({
       next: (response) => {
-        this.authState.login(response.token, response.username);
+        this.authState.login(response.token, response.username, response.provider);
         this.router.navigate(['/dashboard']);
       },
       error: (err) => {
