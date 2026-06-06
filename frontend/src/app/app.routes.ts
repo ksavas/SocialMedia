@@ -4,6 +4,8 @@ import { OAuthCallback } from './auth/callback/callback';
 import { Dashboard } from './dashboard/dashboard';
 import { DashboardHome } from './dashboard/home/home';
 import { UserSettings } from './dashboard/user-settings/user-settings';
+import { People } from './dashboard/people/people';
+import { Profile } from './dashboard/profile/profile';
 import { authGuard, guestGuard } from './auth/guards';
 
 export const routes: Routes = [
@@ -15,6 +17,8 @@ export const routes: Routes = [
     canActivate: [authGuard],
     children: [
       { path: '', component: DashboardHome },
+      { path: 'people', component: People },
+      { path: 'profile/:id', component: Profile },
       { path: 'settings', component: UserSettings },
     ],
   },

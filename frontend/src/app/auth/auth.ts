@@ -21,6 +21,22 @@ export interface AuthResponse {
   provider: string;
 }
 
+export interface UserSummary {
+  id: string;
+  username: string;
+  displayName: string | null;
+  isFollowing: boolean;
+}
+
+export interface UserProfile {
+  id: string;
+  username: string;
+  displayName: string | null;
+  followerCount: number;
+  followingCount: number;
+  isFollowing: boolean;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -44,5 +60,21 @@ export class AuthService {
 
   updateProfile(request: UpdateProfileRequest): Observable<AuthResponse> {
     return this.http.patch<AuthResponse>(`${this.usersUrl}/me`, request);
+  }
+
+  getUsers(): Observable<UserSummary[]> {
+    return this.http.get<UserSummary[]>(this.usersUrl);
+  }
+
+  getProfile(id: string): Observable<UserProfile> {
+    return this.http.get<UserProfile>(`${this.usersUrl}/${id}`);
+  }
+
+  follow(id: string): Observable<void> {
+    return this.http.post<void>(`${this.usersUrl}/${id}/follow`, null);
+  }
+
+  unfollow(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.usersUrl}/${id}/follow`);
   }
 }

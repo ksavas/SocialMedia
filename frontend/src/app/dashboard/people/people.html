@@ -1,0 +1,32 @@
+<div class="people-page">
+  <h2>People</h2>
+
+  @if (loading()) {
+    <p class="state-msg">Loading...</p>
+  } @else if (error()) {
+    <p class="state-msg error">{{ error() }}</p>
+  } @else if (users().length === 0) {
+    <p class="state-msg">No other users yet.</p>
+  } @else {
+    <ul class="user-list">
+      @for (user of users(); track user.id) {
+        <li class="user-item">
+          <a class="user-info" [routerLink]="['/dashboard/profile', user.id]">
+            <div class="avatar">{{ (user.displayName || user.username)[0].toUpperCase() }}</div>
+            <div class="user-text">
+              <span class="display-name">{{ user.displayName || user.username }}</span>
+              <span class="username">&#64;{{ user.username }}</span>
+            </div>
+          </a>
+          <button
+            class="follow-btn"
+            [class.following]="user.isFollowing"
+            (click)="toggleFollow(user)"
+          >
+            {{ user.isFollowing ? 'Unfollow' : 'Follow' }}
+          </button>
+        </li>
+      }
+    </ul>
+  }
+</div>

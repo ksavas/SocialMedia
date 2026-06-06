@@ -1,0 +1,35 @@
+<div class="profile-page">
+  @if (loading()) {
+    <p class="state-msg">Loading...</p>
+  } @else if (error()) {
+    <p class="state-msg error">{{ error() }}</p>
+  } @else if (profile(); as p) {
+    <div class="profile-card">
+      <div class="avatar">{{ (p.displayName || p.username)[0].toUpperCase() }}</div>
+
+      <div class="profile-info">
+        <h2>{{ p.displayName || p.username }}</h2>
+        <span class="username">&#64;{{ p.username }}</span>
+
+        <div class="stats">
+          <div class="stat">
+            <strong>{{ p.followerCount }}</strong>
+            <span>Followers</span>
+          </div>
+          <div class="stat">
+            <strong>{{ p.followingCount }}</strong>
+            <span>Following</span>
+          </div>
+        </div>
+
+        <button
+          class="follow-btn"
+          [class.following]="p.isFollowing"
+          (click)="toggleFollow()"
+        >
+          {{ p.isFollowing ? 'Unfollow' : 'Follow' }}
+        </button>
+      </div>
+    </div>
+  }
+</div>
