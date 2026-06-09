@@ -1,0 +1,19 @@
+package com.socialmedia.post_service.document;
+
+import lombok.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import java.time.LocalDateTime;
+
+@Document(collection = "likes")
+@CompoundIndex(name = "post_user_idx", def = "{'postId': 1, 'userId': 1}", unique = true)
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+public class Like {
+    @Id
+    private String id;
+    private String postId;
+    private String userId;
+    private LocalDateTime createdAt;
+}
