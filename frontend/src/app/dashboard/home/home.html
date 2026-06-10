@@ -1,0 +1,44 @@
+<div class="home">
+  <div class="compose-box">
+    <textarea
+      [(ngModel)]="newContent"
+      placeholder="What's on your mind?"
+      rows="3"
+      maxlength="500"
+    ></textarea>
+    <div class="compose-footer">
+      <span class="char-count">{{ newContent.length }}/500</span>
+      <button (click)="submit()" [disabled]="!newContent.trim() || submitting()">
+        {{ submitting() ? 'Posting...' : 'Post' }}
+      </button>
+    </div>
+  </div>
+
+  @if (posts().length === 0) {
+    <p class="empty">No posts yet. Be the first!</p>
+  }
+
+  @for (post of posts(); track post.id) {
+    <div class="post-card">
+      <div class="post-header">
+        <div class="avatar">{{ post.authorUsername[0].toUpperCase() }}</div>
+        <div>
+          <span class="author">{{ post.authorUsername }}</span>
+          <span class="date">{{ post.createdAt | date:'mediumDate' }}</span>
+        </div>
+        @if (post.authorId === auth.username()) {
+          <button class="delete-btn" (click)="deletePost(post)" title="Delete">✕</button>
+        }
+      </div>
+
+      <p class="post-content">{{ post.content }}</p>
+
+      <div class="post-actions">
+        <button class="like-btn" [class.liked]="post.likedByMe" (click)="toggleLike(post)">
+          ♥ {{ post.likeCount }}
+        </button>
+        <span class="comment-count">💬 {{ post.commentCount }}</span>
+      </div>
+    </div>
+  }
+</div>

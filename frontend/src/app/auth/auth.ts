@@ -78,3 +78,62 @@ export class AuthService {
     return this.http.delete<void>(`${this.usersUrl}/${id}/follow`);
   }
 }
+
+export interface PostResponse {
+  id: string;
+  authorId: string;
+  authorUsername: string;
+  content: string;
+  likeCount: number;
+  commentCount: number;
+  likedByMe: boolean;
+  createdAt: string;
+}
+
+export interface CommentResponse {
+  id: string;
+  postId: string;
+  authorId: string;
+  authorUsername: string;
+  content: string;
+  createdAt: string;
+}
+
+@Injectable({ providedIn: 'root' })
+export class PostApiService {
+  private readonly postsUrl = 'http://localhost:8082/api/posts';
+
+  constructor(private http: HttpClient) {}
+
+  getFeed(): Observable<PostResponse[]> {
+    return this.http.get<PostResponse[]>(this.postsUrl);
+  }
+
+  createPost(content: string): Observable<PostResponse> {
+    return this.http.post<PostResponse>(this.postsUrl, { content });
+  }
+
+  getPost(id: string): Observable<PostResponse> {
+    return this.http.get<PostResponse>(`${this.postsUrl}/${id}`);
+  }
+
+  deletePost(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.postsUrl}/${id}`);
+  }
+
+  likePost(id: string): Observable<void> {
+    return this.http.post<void>(`${this.postsUrl}/${id}/like`, null);
+  }
+
+  unlikePost(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.postsUrl}/${id}/like`);
+  }
+
+  addComment(postId: string, content: string): Observable<CommentResponse> {
+    return this.http.post<CommentResponse>(`${this.postsUrl}/${postId}/comments`, { content });
+  }
+
+  getComments(postId: string): Observable<CommentResponse[]> {
+    return this.http.get<CommentResponse[]>(`${this.postsUrl}/${postId}/comments`);
+  }
+}

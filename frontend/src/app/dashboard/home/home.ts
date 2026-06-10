@@ -1,29 +1,67 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
+import { DatePipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { AuthStateService } from '../../auth/auth-state.service';
+import { PostApiService, PostResponse } from '../../auth/auth';
 
 @Component({
   selector: 'app-dashboard-home',
-  template: `
-    <div class="home-content">
-      <h2>Welcome, {{ auth.username() }}!</h2>
-      <p>Your feed will appear here.</p>
-    </div>
-  `,
-  styles: [`
-    .home-content {
-      padding: 2rem;
-    }
-    h2 {
-      color: #2c2c2c;
-      font-weight: 300;
-      font-size: 1.75rem;
-      margin-bottom: 0.5rem;
-    }
-    p {
-      color: #888;
-    }
-  `],
+  imports: [FormsModule, DatePipe],
+  templateUrl: './home.html',
+  styleUrl: './home.scss',
 })
-export class DashboardHome {
+export class DashboardHome implements OnInit {
   readonly auth = inject(AuthStateService);
+  private readonly postApi = inject(PostApiService);
+
+  posts = signal<PostResponse[]>([]);
+  newContent = '';
+  submitting = signal(false);
+
+  ngOnInit(): void {
+    this.loadPosts();
+  }
+
+  loadPosts(): void {
+    this.postApi.getFeed().subscribe({
+      next: (posts) => this.posts.set(posts),
+    });
+  }
+
+  submit(): void {
+    if (!this.newContent.trim()) return;
+    this.submitting.set(true);
+    this.postApi.createPost(this.newContent.trim()).subscribe({
+      next: (post) => {
+        this.posts.update((list) => [post, ...list]);
+        this.newContent = '';
+        this.submitting.set(false);
+      },
+      error: () => this.submitting.set(false),
+    });
+  }
+
+  toggleLike(post: PostResponse): void {
+    const action$ = post.likedByMe
+      ? this.postApi.unlikePost(post.id)
+      : this.postApi.likePost(post.id);
+
+    action$.subscribe({
+      next: () => {
+        this.posts.update((list) =>
+          list.map((p) =>
+            p.id === post.id
+              ? { ...p, likedByMe: !p.likedByMe, likeCount: p.likedByMe ? p.likeCount - 1 : p.likeCount + 1 }
+              : p
+          )
+        );
+      },
+    });
+  }
+
+  deletePost(post: PostResponse): void {
+    this.postApi.deletePost(post.id).subscribe({
+      next: () => this.posts.update((list) => list.filter((p) => p.id !== post.id)),
+    });
+  }
 }
