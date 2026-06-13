@@ -102,11 +102,12 @@ export interface CommentResponse {
 @Injectable({ providedIn: 'root' })
 export class PostApiService {
   private readonly postsUrl = 'http://localhost:8082/api/posts';
+  private readonly feedUrl = 'http://localhost:8084/api/feed';
 
   constructor(private http: HttpClient) {}
 
   getFeed(): Observable<PostResponse[]> {
-    return this.http.get<PostResponse[]>(this.postsUrl);
+    return this.http.get<PostResponse[]>(this.feedUrl);
   }
 
   createPost(content: string): Observable<PostResponse> {
