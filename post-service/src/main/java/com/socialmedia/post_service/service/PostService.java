@@ -10,11 +10,13 @@ import com.socialmedia.post_service.dto.CommentResponse;
 import com.socialmedia.post_service.dto.CreateCommentRequest;
 import com.socialmedia.post_service.dto.CreatePostRequest;
 import com.socialmedia.post_service.dto.PostResponse;
+import com.socialmedia.post_service.dto.PostSummary;
 import com.socialmedia.post_service.repository.CommentRepository;
 import com.socialmedia.post_service.repository.LikeRepository;
 import com.socialmedia.post_service.repository.OutboxEventRepository;
 import com.socialmedia.post_service.repository.PostRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -58,7 +60,7 @@ public class PostService {
             throw new IllegalStateException("Not authorized");
         }
         postRepository.delete(post);
-        saveOutboxEvent("post.deleted", postId, Map.of("postId", postId));
+        saveOutboxEvent("post.deleted", postId, Map.of("postId", postId, "authorId", post.getAuthorId()));
     }
 
     public void likePost(String userId, String postId) {
@@ -111,6 +113,20 @@ public class PostService {
 
     public List<PostResponse> getAllPosts(String requesterId) {
         return postRepository.findAllByOrderByCreatedAtDesc()
+                .stream()
+                .map(p -> toResponse(p, requesterId))
+                .toList();
+    }
+
+    public List<PostSummary> getPostsByAuthor(String authorId, int limit) {
+        return postRepository.findByAuthorIdOrderByCreatedAtDesc(authorId, PageRequest.of(0, limit))
+                .stream()
+                .map(p -> new PostSummary(p.getId(), p.getAuthorId(), p.getCreatedAt()))
+                .toList();
+    }
+
+    public List<PostResponse> getPostsByIds(List<String> postIds, String requesterId) {
+        return postRepository.findByIdIn(postIds)
                 .stream()
                 .map(p -> toResponse(p, requesterId))
                 .toList();

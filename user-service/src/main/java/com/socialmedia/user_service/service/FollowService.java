@@ -93,6 +93,14 @@ public class FollowService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<String> getFollowerIds(UUID userId) {
+        return followRepository.findFollowerIdsByFollowingId(userId)
+                .stream()
+                .map(UUID::toString)
+                .toList();
+    }
+
     private User findByUsername(String username) {
         return userRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
