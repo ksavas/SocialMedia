@@ -33,7 +33,7 @@ public class GoogleTokenVerifierImpl implements OAuthTokenVerifier {
     }
 
     @Override
-    public OAuthUserInfo verify(String idToken) {
+    public OAuthUserInfo verify(String idToken, String expectedNonce) {
         try {
             GoogleIdToken token = verifier.verify(idToken);
 
@@ -42,6 +42,12 @@ public class GoogleTokenVerifierImpl implements OAuthTokenVerifier {
             }
 
             GoogleIdToken.Payload payload = token.getPayload();
+
+            String tokenNonce = (String) payload.get("nonce");
+            if (!expectedNonce.equals(tokenNonce)) {
+                throw new InvalidTokenException("Nonce mismatch");
+            }
+
             return new OAuthUserInfo(
                     payload.getSubject(),
                     payload.getEmail(),

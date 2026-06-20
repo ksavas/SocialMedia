@@ -54,8 +54,8 @@ export class AuthService {
     return this.http.post<AuthResponse>(`${this.authUrl}/login`, { provider: 'LOCAL', username, password });
   }
 
-  oauthLogin(provider: 'GOOGLE' | 'MICROSOFT', idToken: string): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${this.authUrl}/login`, { provider, idToken });
+  oauthLogin(provider: 'GOOGLE' | 'MICROSOFT', idToken: string, state: string): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>(`${this.authUrl}/login`, { provider, idToken, state });
   }
 
   updateProfile(request: UpdateProfileRequest): Observable<AuthResponse> {

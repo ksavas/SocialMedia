@@ -34,7 +34,7 @@ class AuthServiceTest {
     @Test
     void login_shouldReturnAuthResponse_whenLocalStrategySucceeds() {
         User user = User.builder().id(UUID.randomUUID()).username("kaan").build();
-        LoginRequest request = new LoginRequest(Provider.LOCAL, "kaan", "secret", null);
+        LoginRequest request = new LoginRequest(Provider.LOCAL, "kaan", "secret", null, null);
 
         when(localStrategy.supports(Provider.LOCAL)).thenReturn(true);
         when(localStrategy.resolveUser(request)).thenReturn(user);
@@ -49,7 +49,7 @@ class AuthServiceTest {
     @Test
     void login_shouldReturnAuthResponse_whenOAuthStrategySucceeds() {
         User user = User.builder().id(UUID.randomUUID()).username("kaan").build();
-        LoginRequest request = new LoginRequest(Provider.GOOGLE, null, null, "id.token");
+        LoginRequest request = new LoginRequest(Provider.GOOGLE, null, null, "id.token", "some-state");
 
         when(localStrategy.supports(Provider.GOOGLE)).thenReturn(false);
         when(oauthStrategy.supports(Provider.GOOGLE)).thenReturn(true);
@@ -63,7 +63,7 @@ class AuthServiceTest {
 
     @Test
     void login_shouldThrow_whenNoStrategySupportsProvider() {
-        LoginRequest request = new LoginRequest(Provider.MICROSOFT, null, null, "id.token");
+        LoginRequest request = new LoginRequest(Provider.MICROSOFT, null, null, "id.token", "some-state");
 
         when(localStrategy.supports(Provider.MICROSOFT)).thenReturn(false);
         when(oauthStrategy.supports(Provider.MICROSOFT)).thenReturn(false);

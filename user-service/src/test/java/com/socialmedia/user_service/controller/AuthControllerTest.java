@@ -3,11 +3,13 @@ package com.socialmedia.user_service.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.socialmedia.user_service.dto.AuthResponse;
 import com.socialmedia.user_service.dto.LoginRequest;
+import com.socialmedia.user_service.dto.OAuthInitResponse;
 import com.socialmedia.user_service.dto.RegisterRequest;
 import com.socialmedia.user_service.entity.Provider;
 import com.socialmedia.user_service.exception.InvalidCredentialsException;
 import com.socialmedia.user_service.exception.UserAlreadyExistsException;
 import com.socialmedia.user_service.service.AuthService;
+import com.socialmedia.user_service.service.OAuthStateService;
 import com.socialmedia.user_service.service.UserService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +21,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -37,6 +40,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private AuthService authService;
+
+    @MockitoBean
+    private OAuthStateService oauthStateService;
 
     @Test
     void register_shouldReturn201_whenValidRequest() throws Exception {
@@ -75,7 +81,7 @@ class AuthControllerTest {
 
     @Test
     void login_shouldReturn200_whenValidLocalCredentials() throws Exception {
-        LoginRequest request = new LoginRequest(Provider.LOCAL, "testuser", "password123", null);
+        LoginRequest request = new LoginRequest(Provider.LOCAL, "testuser", "password123", null, null);
         when(authService.login(any())).thenReturn(new AuthResponse("jwt-token", "testuser", "LOCAL"));
 
         mockMvc.perform(post("/api/auth/login")
@@ -88,8 +94,8 @@ class AuthControllerTest {
 
     @Test
     void login_shouldReturn200_whenValidGoogleToken() throws Exception {
-        LoginRequest request = new LoginRequest(Provider.GOOGLE, null, null, "valid.google.token");
-        when(authService.login(any())).thenReturn(new AuthResponse("jwt-token", "testuser", "LOCAL"));
+        LoginRequest request = new LoginRequest(Provider.GOOGLE, null, null, "valid.google.token", "valid-state");
+        when(authService.login(any())).thenReturn(new AuthResponse("jwt-token", "testuser", "GOOGLE"));
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -100,12 +106,22 @@ class AuthControllerTest {
 
     @Test
     void login_shouldReturn401_whenInvalidCredentials() throws Exception {
-        LoginRequest request = new LoginRequest(Provider.LOCAL, "testuser", "wrong", null);
+        LoginRequest request = new LoginRequest(Provider.LOCAL, "testuser", "wrong", null, null);
         when(authService.login(any())).thenThrow(new InvalidCredentialsException("Invalid credentials"));
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void oauthInit_shouldReturn200_withStateAndNonce() throws Exception {
+        when(oauthStateService.initiate()).thenReturn(new OAuthInitResponse("state-abc", "nonce-xyz"));
+
+        mockMvc.perform(get("/api/auth/oauth/init"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.state").value("state-abc"))
+                .andExpect(jsonPath("$.nonce").value("nonce-xyz"));
     }
 }

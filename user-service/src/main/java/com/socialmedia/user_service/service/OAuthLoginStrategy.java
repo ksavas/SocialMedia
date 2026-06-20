@@ -23,6 +23,7 @@ public class OAuthLoginStrategy implements LoginStrategy {
     private final List<OAuthTokenVerifier> verifiers;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final OAuthStateService oauthStateService;
 
     private Map<Provider, OAuthTokenVerifier> verifierMap() {
         return verifiers.stream()
@@ -41,7 +42,8 @@ public class OAuthLoginStrategy implements LoginStrategy {
             throw new InvalidTokenException("Unsupported provider: " + request.provider());
         }
 
-        OAuthUserInfo userInfo = verifier.verify(request.idToken());
+        String expectedNonce = oauthStateService.validateAndConsume(request.state());
+        OAuthUserInfo userInfo = verifier.verify(request.idToken(), expectedNonce);
 
         if (!userInfo.emailVerified()) {
             throw new InvalidTokenException("Email not verified by " + request.provider());

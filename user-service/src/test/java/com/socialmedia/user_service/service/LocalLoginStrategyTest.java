@@ -56,7 +56,7 @@ class LocalLoginStrategyTest {
                 .provider(Provider.LOCAL)
                 .build();
 
-        LoginRequest request = new LoginRequest(Provider.LOCAL, "kaan", "secret", null);
+        LoginRequest request = new LoginRequest(Provider.LOCAL, "kaan", "secret", null, null);
         when(userRepository.findByUsername("kaan")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("secret", "hashed")).thenReturn(true);
 
@@ -75,7 +75,7 @@ class LocalLoginStrategyTest {
                 .provider(Provider.LOCAL)
                 .build();
 
-        LoginRequest request = new LoginRequest(Provider.LOCAL, "kaan@test.com", "secret", null);
+        LoginRequest request = new LoginRequest(Provider.LOCAL, "kaan@test.com", "secret", null, null);
         when(userRepository.findByUsername("kaan@test.com")).thenReturn(Optional.empty());
         when(userRepository.findByEmail("kaan@test.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("secret", "hashed")).thenReturn(true);
@@ -87,7 +87,7 @@ class LocalLoginStrategyTest {
 
     @Test
     void resolveUser_shouldThrow_whenUserNotFound() {
-        LoginRequest request = new LoginRequest(Provider.LOCAL, "unknown", "secret", null);
+        LoginRequest request = new LoginRequest(Provider.LOCAL, "unknown", "secret", null, null);
         when(userRepository.findByUsername("unknown")).thenReturn(Optional.empty());
         when(userRepository.findByEmail("unknown")).thenReturn(Optional.empty());
 
@@ -104,7 +104,7 @@ class LocalLoginStrategyTest {
                 .provider(Provider.LOCAL)
                 .build();
 
-        LoginRequest request = new LoginRequest(Provider.LOCAL, "kaan", "wrong", null);
+        LoginRequest request = new LoginRequest(Provider.LOCAL, "kaan", "wrong", null, null);
         when(userRepository.findByUsername("kaan")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("wrong", "hashed")).thenReturn(false);
 
@@ -121,7 +121,7 @@ class LocalLoginStrategyTest {
                 .provider(Provider.GOOGLE)
                 .build();
 
-        LoginRequest request = new LoginRequest(Provider.LOCAL, "kaan", "secret", null);
+        LoginRequest request = new LoginRequest(Provider.LOCAL, "kaan", "secret", null, null);
         when(userRepository.findByUsername("kaan")).thenReturn(Optional.of(oauthUser));
         when(passwordEncoder.matches("secret", "hashed")).thenReturn(true);
 
@@ -139,7 +139,7 @@ class LocalLoginStrategyTest {
                 .provider(Provider.GOOGLE)
                 .build();
 
-        LoginRequest request = new LoginRequest(Provider.LOCAL, "kaan", "wrong", null);
+        LoginRequest request = new LoginRequest(Provider.LOCAL, "kaan", "wrong", null, null);
         when(userRepository.findByUsername("kaan")).thenReturn(Optional.of(oauthUser));
         when(passwordEncoder.matches("wrong", "random_hash")).thenReturn(false);
 

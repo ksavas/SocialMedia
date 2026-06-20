@@ -15,12 +15,12 @@ export class OAuthCallback implements OnInit {
   private readonly router = inject(Router);
 
   ngOnInit(): void {
-    const idToken = this.oauthService.parseCallbackToken();
-    if (!idToken) {
+    const { idToken, state } = this.oauthService.parseCallbackParams();
+    if (!idToken || !state) {
       this.router.navigate(['/register']);
       return;
     }
-    this.authService.oauthLogin('GOOGLE', idToken).subscribe({
+    this.authService.oauthLogin('GOOGLE', idToken, state).subscribe({
       next: (response) => {
         this.authState.login(response.token, response.username, response.provider);
         this.router.navigate(['/dashboard']);

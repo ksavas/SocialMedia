@@ -7,5 +7,6 @@ public record LoginRequest(
         @NotNull Provider provider,
         String username,
         String password,
-        String idToken
+        String idToken,
+        String state
 ) {}

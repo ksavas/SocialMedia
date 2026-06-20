@@ -30,7 +30,7 @@ public class MicrosoftTokenVerifierImpl implements OAuthTokenVerifier {
     }
 
     @Override
-    public OAuthUserInfo verify(String idToken) {
+    public OAuthUserInfo verify(String idToken, String expectedNonce) {
         try {
             Jwt jwt = jwtDecoder.decode(idToken);
 
@@ -38,17 +38,20 @@ public class MicrosoftTokenVerifierImpl implements OAuthTokenVerifier {
                 throw new InvalidTokenException("Token audience mismatch");
             }
 
+            String tokenNonce = jwt.getClaim("nonce");
+            if (!expectedNonce.equals(tokenNonce)) {
+                throw new InvalidTokenException("Nonce mismatch");
+            }
+
             String providerId = jwt.getSubject();
             String email = jwt.getClaim("email");
             String name = jwt.getClaim("name");
-
-            boolean emailVerified = true;
 
             if (email == null) {
                 email = jwt.getClaim("preferred_username");
             }
 
-            return new OAuthUserInfo(providerId, email, name, emailVerified);
+            return new OAuthUserInfo(providerId, email, name, true);
 
         } catch (JwtException e) {
             throw new InvalidTokenException("Failed to verify Microsoft token: " + e.getMessage());

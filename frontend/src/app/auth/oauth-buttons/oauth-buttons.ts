@@ -10,6 +10,6 @@ export class OAuthButtons {
   constructor(private oauthProviderService: OAuthProviderService) {}
 
   loginWithGoogle(): void {
-    this.oauthProviderService.loginWithGoogle();
+    this.oauthProviderService.loginWithGoogle().subscribe();
   }
 }
