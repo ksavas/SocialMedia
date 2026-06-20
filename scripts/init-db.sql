@@ -1,13 +1,15 @@
 CREATE TABLE IF NOT EXISTS users (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    username    VARCHAR(50) UNIQUE NOT NULL,
-    email       VARCHAR(100) UNIQUE NOT NULL,
-    password    VARCHAR(255) NOT NULL,
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username     VARCHAR(50) UNIQUE NOT NULL,
+    email        VARCHAR(100) UNIQUE NOT NULL,
+    password     VARCHAR(255) NOT NULL,
     display_name VARCHAR(100),
-    bio         TEXT,
-    avatar_url  VARCHAR(500),
-    created_at  TIMESTAMP DEFAULT NOW(),
-    updated_at  TIMESTAMP DEFAULT NOW()
+    bio          TEXT,
+    avatar_url   VARCHAR(500),
+    provider     VARCHAR(255) NOT NULL DEFAULT 'LOCAL' CHECK (provider IN ('LOCAL','GOOGLE','MICROSOFT')),
+    provider_id  VARCHAR(255),
+    created_at   TIMESTAMP DEFAULT NOW(),
+    updated_at   TIMESTAMP DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS follows (
