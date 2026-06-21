@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, OnDestroy, signal } from '@angular/core';
+import { Component, HostListener, inject, OnInit, OnDestroy, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { DatePipe } from '@angular/common';
 import { AuthStateService } from '../auth/auth-state.service';
@@ -25,7 +25,13 @@ export class Dashboard implements OnInit, OnDestroy {
     this.notificationSvc.disconnect();
   }
 
-  togglePanel(): void {
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    this.showPanel.set(false);
+  }
+
+  togglePanel(event: Event): void {
+    event.stopPropagation();
     this.showPanel.update((v) => !v);
   }
 
