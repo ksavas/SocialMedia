@@ -3,6 +3,7 @@ package com.socialmedia.feed_service.service;
 import com.socialmedia.feed_service.dto.PostSummary;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.ZoneOffset;
@@ -19,11 +20,14 @@ public class FeedService {
     private final RedisTemplate<String, String> redisTemplate;
     private final UserServiceClient userServiceClient;
     private final PostServiceClient postServiceClient;
+    private final KafkaTemplate<String, String> kafkaTemplate;
 
     public void handlePostCreated(String postId, String authorId, long epochMillis) {
         List<String> followerIds = userServiceClient.getFollowerIds(authorId);
         for (String followerId : followerIds) {
             addPostToFeed(followerId, authorId, postId, epochMillis);
+            kafkaTemplate.send("feed.updated", followerId,
+                    "{\"userId\":\"" + followerId + "\",\"postId\":\"" + postId + "\"}");
         }
     }
 

@@ -13,6 +13,7 @@ import org.mockito.quality.Strictness;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.SetOperations;
 import org.springframework.data.redis.core.ZSetOperations;
+import org.springframework.kafka.core.KafkaTemplate;
 
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
@@ -37,6 +38,8 @@ class FeedServiceTest {
     private UserServiceClient userServiceClient;
     @Mock
     private PostServiceClient postServiceClient;
+    @Mock
+    private KafkaTemplate<String, String> kafkaTemplate;
 
     @InjectMocks
     private FeedService feedService;
@@ -62,12 +65,23 @@ class FeedServiceTest {
     }
 
     @Test
+    void handlePostCreated_publishesFeedUpdatedForEachFollower() {
+        when(userServiceClient.getFollowerIds("author1")).thenReturn(List.of("f1", "f2"));
+
+        feedService.handlePostCreated("p1", "author1", 1000L);
+
+        verify(kafkaTemplate).send(eq("feed.updated"), eq("f1"), contains("p1"));
+        verify(kafkaTemplate).send(eq("feed.updated"), eq("f2"), contains("p1"));
+    }
+
+    @Test
     void handlePostCreated_doesNothingWhenNoFollowers() {
         when(userServiceClient.getFollowerIds("author1")).thenReturn(List.of());
 
         feedService.handlePostCreated("p1", "author1", 1000L);
 
         verify(zSetOps, never()).add(any(), any(), anyDouble());
+        verify(kafkaTemplate, never()).send(anyString(), anyString(), anyString());
     }
 
     @Test
