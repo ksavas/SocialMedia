@@ -34,6 +34,13 @@ public class NotificationService {
         return create(postAuthorId, "COMMENT_CREATED", actorId, postId);
     }
 
+    public void processFeedUpdated(String userId, String postId) {
+        NotificationResponse notification = new NotificationResponse(
+                null, userId, "NEW_POST", null, postId, false, LocalDateTime.now()
+        );
+        pushNotification(userId, notification);
+    }
+
     public Flux<NotificationResponse> getNotifications(String userId) {
         return repository.findByRecipientIdOrderByCreatedAtDesc(userId)
                 .map(this::toResponse);

@@ -1,6 +1,7 @@
 package com.socialmedia.notification_service.consumer;
 
 import com.socialmedia.notification_service.dto.CommentCreatedEvent;
+import com.socialmedia.notification_service.dto.FeedUpdatedEvent;
 import com.socialmedia.notification_service.dto.PostLikedEvent;
 import com.socialmedia.notification_service.dto.UserFollowedEvent;
 import com.socialmedia.notification_service.service.NotificationService;
@@ -17,7 +18,7 @@ public class NotificationEventConsumer {
     private final NotificationService notificationService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @KafkaListener(topics = {"user.followed", "post.liked", "comment.created"}, groupId = "notification-service")
+    @KafkaListener(topics = {"user.followed", "post.liked", "comment.created", "feed.updated"}, groupId = "notification-service")
     public void listen(ConsumerRecord<String, String> record) {
         try {
             String topic = record.topic();
@@ -34,6 +35,10 @@ public class NotificationEventConsumer {
                 case "comment.created" -> {
                     CommentCreatedEvent event = objectMapper.readValue(payload, CommentCreatedEvent.class);
                     notificationService.processCommentCreated(event.authorId(), event.postAuthorId(), event.postId()).subscribe();
+                }
+                case "feed.updated" -> {
+                    FeedUpdatedEvent event = objectMapper.readValue(payload, FeedUpdatedEvent.class);
+                    notificationService.processFeedUpdated(event.userId(), event.postId());
                 }
             }
         } catch (Exception ignored) {}

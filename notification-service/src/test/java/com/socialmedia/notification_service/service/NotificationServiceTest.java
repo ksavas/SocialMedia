@@ -18,6 +18,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -101,6 +102,23 @@ class NotificationServiceTest {
                 .verifyComplete();
 
         verify(repository).markAsRead(id, "user1");
+    }
+
+    @Test
+    void processFeedUpdated_pushesEphemeralSseWithoutDbWrite() {
+        Flux<ServerSentEvent<NotificationResponse>> stream = service.streamNotifications("user1");
+
+        StepVerifier.create(stream)
+                .then(() -> service.processFeedUpdated("user1", "post-abc"))
+                .expectNextMatches(sse ->
+                        "NEW_POST".equals(sse.data().type()) &&
+                        "post-abc".equals(sse.data().postId()) &&
+                        sse.data().id() == null
+                )
+                .thenCancel()
+                .verify();
+
+        verify(repository, never()).save(any());
     }
 
     @Test
