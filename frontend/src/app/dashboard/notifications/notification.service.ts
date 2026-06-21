@@ -5,7 +5,7 @@ import { tap } from 'rxjs';
 export interface NotificationItem {
   id: string;
   recipientId: string;
-  type: 'FOLLOWED' | 'POST_LIKED' | 'COMMENT_CREATED';
+  type: 'FOLLOWED' | 'POST_LIKED' | 'COMMENT_CREATED' | 'NEW_POST';
   actorId: string;
   postId: string | null;
   read: boolean;
@@ -19,6 +19,7 @@ export class NotificationService {
 
   readonly notifications = signal<NotificationItem[]>([]);
   readonly unreadCount = computed(() => this.notifications().filter(n => !n.read).length);
+  readonly newPostCount = signal<number>(0);
 
   private eventSource?: EventSource;
 
@@ -33,7 +34,11 @@ export class NotificationService {
     this.eventSource = new EventSource(`${this.baseUrl}/stream?token=${token}`);
     this.eventSource.onmessage = (event) => {
       const notification: NotificationItem = JSON.parse(event.data);
-      this.notifications.update((list) => [notification, ...list]);
+      if (notification.type === 'NEW_POST') {
+        this.newPostCount.update((n) => n + 1);
+      } else {
+        this.notifications.update((list) => [notification, ...list]);
+      }
     };
   }
 
@@ -41,6 +46,11 @@ export class NotificationService {
     this.eventSource?.close();
     this.eventSource = undefined;
     this.notifications.set([]);
+    this.newPostCount.set(0);
+  }
+
+  clearNewPosts(): void {
+    this.newPostCount.set(0);
   }
 
   markAsRead(id: string): void {
@@ -56,6 +66,7 @@ export class NotificationService {
       case 'FOLLOWED': return 'You have a new follower';
       case 'POST_LIKED': return 'Someone liked your post';
       case 'COMMENT_CREATED': return 'Someone commented on your post';
+      case 'NEW_POST': return 'New post available';
     }
   }
 }

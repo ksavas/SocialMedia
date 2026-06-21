@@ -48,6 +48,23 @@
   }
 }
 
+.new-posts-banner {
+  position: sticky;
+  top: 1rem;
+  align-self: center;
+  background: #2c2c2c;
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  padding: 0.5rem 1.5rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+
+  &:hover { opacity: 0.8; }
+}
+
 .empty { color: #aaa; text-align: center; padding: 2rem 0; }
 
 .post-card {

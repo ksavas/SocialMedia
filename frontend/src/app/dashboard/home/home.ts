@@ -3,6 +3,7 @@ import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthStateService } from '../../auth/auth-state.service';
 import { PostApiService, PostResponse } from '../../auth/auth';
+import { NotificationService } from '../notifications/notification.service';
 
 @Component({
   selector: 'app-dashboard-home',
@@ -13,6 +14,7 @@ import { PostApiService, PostResponse } from '../../auth/auth';
 export class DashboardHome implements OnInit {
   readonly auth = inject(AuthStateService);
   private readonly postApi = inject(PostApiService);
+  readonly notificationSvc = inject(NotificationService);
 
   posts = signal<PostResponse[]>([]);
   newContent = '';
@@ -26,6 +28,11 @@ export class DashboardHome implements OnInit {
     this.postApi.getFeed().subscribe({
       next: (posts) => this.posts.set(posts),
     });
+  }
+
+  showNewPosts(): void {
+    this.notificationSvc.clearNewPosts();
+    this.loadPosts();
   }
 
   submit(): void {

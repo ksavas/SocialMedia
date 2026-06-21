@@ -14,6 +14,12 @@
     </div>
   </div>
 
+  @if (notificationSvc.newPostCount() > 0) {
+    <button class="new-posts-banner" (click)="showNewPosts()">
+      ↑ {{ notificationSvc.newPostCount() }} new posts
+    </button>
+  }
+
   @if (posts().length === 0) {
     <p class="empty">No posts yet. Be the first!</p>
   }
