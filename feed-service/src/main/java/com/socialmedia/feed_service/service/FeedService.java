@@ -23,6 +23,7 @@ public class FeedService {
     private final KafkaTemplate<String, String> kafkaTemplate;
 
     public void handlePostCreated(String postId, String authorId, long epochMillis) {
+        addPostToFeed(authorId, authorId, postId, epochMillis);
         List<String> followerIds = userServiceClient.getFollowerIds(authorId);
         for (String followerId : followerIds) {
             addPostToFeed(followerId, authorId, postId, epochMillis);

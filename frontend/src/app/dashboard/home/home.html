@@ -32,7 +32,7 @@
           <span class="author">{{ post.authorUsername }}</span>
           <span class="date">{{ post.createdAt | date:'mediumDate' }}</span>
         </div>
-        @if (post.authorId === auth.username()) {
+        @if (post.authorUsername === auth.username()) {
           <button class="delete-btn" (click)="deletePost(post)" title="Delete">✕</button>
         }
       </div>
