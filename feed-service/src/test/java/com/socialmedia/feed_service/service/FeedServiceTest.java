@@ -75,12 +75,12 @@ class FeedServiceTest {
     }
 
     @Test
-    void handlePostCreated_doesNothingWhenNoFollowers() {
+    void handlePostCreated_addsToAuthorFeedEvenWhenNoFollowers() {
         when(userServiceClient.getFollowerIds("author1")).thenReturn(List.of());
 
         feedService.handlePostCreated("p1", "author1", 1000L);
 
-        verify(zSetOps, never()).add(any(), any(), anyDouble());
+        verify(zSetOps).add(eq("feed:author1"), eq("p1"), anyDouble());
         verify(kafkaTemplate, never()).send(anyString(), anyString(), anyString());
     }
 

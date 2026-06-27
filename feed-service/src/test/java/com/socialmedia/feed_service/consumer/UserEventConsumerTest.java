@@ -8,7 +8,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -21,7 +21,7 @@ class UserEventConsumerTest {
     private UserEventConsumer consumer;
 
     @Test
-    void listen_userFollowed_callsHandleUserFollowed() {
+    void listen_userFollowed_callsHandleUserFollowed() throws Exception {
         String payload = """
                 {"followerId":"f1","followingId":"f2"}
                 """;
@@ -33,7 +33,7 @@ class UserEventConsumerTest {
     }
 
     @Test
-    void listen_userUnfollowed_callsHandleUserUnfollowed() {
+    void listen_userUnfollowed_callsHandleUserUnfollowed() throws Exception {
         String payload = """
                 {"followerId":"f1","followingId":"f2"}
                 """;
@@ -45,9 +45,9 @@ class UserEventConsumerTest {
     }
 
     @Test
-    void listen_invalidJson_doesNotThrow() {
+    void listen_invalidJson_throwsException() {
         ConsumerRecord<String, String> record = new ConsumerRecord<>("user.followed", 0, 0L, "key", "bad");
 
-        assertDoesNotThrow(() -> consumer.listen(record));
+        assertThrows(Exception.class, () -> consumer.listen(record));
     }
 }

@@ -17,17 +17,15 @@ public class PostEventConsumer {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @KafkaListener(topics = {"post.created", "post.deleted"}, groupId = "feed-service")
-    public void listen(ConsumerRecord<String, String> record) {
-        try {
-            String topic = record.topic();
-            String payload = record.value();
-            if ("post.created".equals(topic)) {
-                PostCreatedEvent event = objectMapper.readValue(payload, PostCreatedEvent.class);
-                feedService.handlePostCreated(event.postId(), event.authorId(), record.timestamp());
-            } else if ("post.deleted".equals(topic)) {
-                PostDeletedEvent event = objectMapper.readValue(payload, PostDeletedEvent.class);
-                feedService.handlePostDeleted(event.postId(), event.authorId());
-            }
-        } catch (Exception ignored) {}
+    public void listen(ConsumerRecord<String, String> record) throws Exception {
+        String topic = record.topic();
+        String payload = record.value();
+        if ("post.created".equals(topic)) {
+            PostCreatedEvent event = objectMapper.readValue(payload, PostCreatedEvent.class);
+            feedService.handlePostCreated(event.postId(), event.authorId(), record.timestamp());
+        } else if ("post.deleted".equals(topic)) {
+            PostDeletedEvent event = objectMapper.readValue(payload, PostDeletedEvent.class);
+            feedService.handlePostDeleted(event.postId(), event.authorId());
+        }
     }
 }
