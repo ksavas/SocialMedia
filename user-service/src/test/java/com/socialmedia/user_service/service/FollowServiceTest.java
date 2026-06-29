@@ -121,13 +121,13 @@ class FollowServiceTest {
         User other = User.builder().id(otherId).username("other").email("o@o.com").password("p").build();
 
         when(userRepository.findByUsername("current")).thenReturn(Optional.of(currentUser));
-        when(userRepository.findAll()).thenReturn(List.of(currentUser, other));
-        when(followRepository.existsByFollowerIdAndFollowingId(currentUserId, otherId)).thenReturn(false);
+        when(userRepository.findAll()).thenReturn(List.of(currentUser, other, targetUser));
+        when(followRepository.findFollowingIdsByFollowerId(currentUserId)).thenReturn(List.of(targetUserId));
 
         List<UserSummary> users = followService.getUsers("current");
 
-        assertThat(users).hasSize(1);
-        assertThat(users.getFirst().username()).isEqualTo("other");
-        assertThat(users.getFirst().isFollowing()).isFalse();
+        assertThat(users).extracting(UserSummary::username).containsExactly("other", "target");
+        assertThat(users).extracting(UserSummary::isFollowing).containsExactly(false, true);
+        verify(followRepository, never()).existsByFollowerIdAndFollowingId(any(), any());
     }
 }

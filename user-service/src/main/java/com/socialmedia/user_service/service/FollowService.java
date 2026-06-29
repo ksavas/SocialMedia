@@ -14,8 +14,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -81,6 +83,7 @@ public class FollowService {
     @Transactional(readOnly = true)
     public List<UserSummary> getUsers(String currentUsername) {
         User currentUser = findByUsername(currentUsername);
+        Set<UUID> followingIds = new HashSet<>(followRepository.findFollowingIdsByFollowerId(currentUser.getId()));
 
         return userRepository.findAll().stream()
                 .filter(u -> !u.getId().equals(currentUser.getId()))
@@ -88,7 +91,7 @@ public class FollowService {
                         u.getId(),
                         u.getUsername(),
                         u.getDisplayName(),
-                        followRepository.existsByFollowerIdAndFollowingId(currentUser.getId(), u.getId())
+                        followingIds.contains(u.getId())
                 ))
                 .toList();
     }

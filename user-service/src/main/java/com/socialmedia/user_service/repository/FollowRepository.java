@@ -17,4 +17,7 @@ public interface FollowRepository extends JpaRepository<Follow, FollowId> {
 
     @Query("SELECT f.followerId FROM Follow f WHERE f.followingId = :followingId")
     List<UUID> findFollowerIdsByFollowingId(@Param("followingId") UUID followingId);
+
+    @Query("SELECT f.followingId FROM Follow f WHERE f.followerId = :followerId")
+    List<UUID> findFollowingIdsByFollowerId(@Param("followerId") UUID followerId);
 }
