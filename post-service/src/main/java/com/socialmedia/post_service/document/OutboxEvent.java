@@ -5,7 +5,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Document(collection = "outbox_events")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
@@ -19,6 +19,6 @@ public class OutboxEvent {
     @Builder.Default
     @Indexed
     private String status = "PENDING";
-    private LocalDateTime createdAt;
-    private LocalDateTime processedAt;
+    private Instant createdAt;
+    private Instant processedAt;
 }

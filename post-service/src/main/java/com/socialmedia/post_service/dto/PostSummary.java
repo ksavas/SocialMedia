@@ -1,5 +1,5 @@
 package com.socialmedia.post_service.dto;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
-public record PostSummary(String id, String authorId, LocalDateTime createdAt) {}
+public record PostSummary(String id, String authorId, Instant createdAt) {}

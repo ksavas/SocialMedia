@@ -15,13 +15,19 @@ import com.socialmedia.post_service.repository.CommentRepository;
 import com.socialmedia.post_service.repository.LikeRepository;
 import com.socialmedia.post_service.repository.OutboxEventRepository;
 import com.socialmedia.post_service.repository.PostRepository;
+import com.socialmedia.post_service.transaction.TransactionRunner;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -31,90 +37,102 @@ public class PostService {
     private final LikeRepository likeRepository;
     private final CommentRepository commentRepository;
     private final OutboxEventRepository outboxEventRepository;
+    private final TransactionRunner transactionRunner;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public PostResponse createPost(String authorId, String authorUsername, CreatePostRequest request) {
-        Post post = postRepository.save(Post.builder()
-                .authorId(authorId)
-                .authorUsername(authorUsername)
-                .content(request.content())
-                .createdAt(LocalDateTime.now())
-                .build());
-
-        saveOutboxEvent("post.created", post.getId(), Map.of(
-                "postId", post.getId(),
-                "authorId", authorId
-        ));
-
-        return toResponse(post, authorId);
+        Post post = transactionRunner.inTransaction(() -> {
+            Post saved = postRepository.save(Post.builder()
+                    .authorId(authorId)
+                    .authorUsername(authorUsername)
+                    .content(request.content())
+                    .createdAt(Instant.now())
+                    .build());
+            saveOutboxEvent("post.created", saved.getId(), Map.of(
+                    "postId", saved.getId(),
+                    "authorId", authorId,
+                    "createdAt", saved.getCreatedAt().toString()
+            ));
+            return saved;
+        });
+        return toResponse(post, false);
     }
 
     public PostResponse getPost(String requesterId, String postId) {
         Post post = findPost(postId);
-        return toResponse(post, requesterId);
+        return toResponse(post, likeRepository.existsByPostIdAndUserId(postId, requesterId));
     }
 
     public void deletePost(String requesterId, String postId) {
-        Post post = findPost(postId);
-        if (!post.getAuthorId().equals(requesterId)) {
-            throw new IllegalStateException("Not authorized");
-        }
-        postRepository.delete(post);
-        saveOutboxEvent("post.deleted", postId, Map.of("postId", postId, "authorId", post.getAuthorId()));
+        transactionRunner.runInTransaction(() -> {
+            Post post = findPost(postId);
+            if (!post.getAuthorId().equals(requesterId)) {
+                throw new IllegalStateException("Not authorized");
+            }
+            postRepository.delete(post);
+            saveOutboxEvent("post.deleted", postId, Map.of("postId", postId, "authorId", post.getAuthorId()));
+        });
     }
 
     public void likePost(String userId, String postId) {
-        Post post = findPost(postId);
-        if (likeRepository.existsByPostIdAndUserId(postId, userId)) {
-            throw new IllegalStateException("Already liked");
-        }
-        likeRepository.save(Like.builder().postId(postId).userId(userId).createdAt(LocalDateTime.now()).build());
-        post.setLikeCount(post.getLikeCount() + 1);
-        postRepository.save(post);
-
-        saveOutboxEvent("post.liked", postId, Map.of(
-                "postId", postId,
-                "userId", userId,
-                "authorId", post.getAuthorId()
-        ));
+        transactionRunner.runInTransaction(() -> {
+            Post post = findPost(postId);
+            if (likeRepository.existsByPostIdAndUserId(postId, userId)) {
+                throw new IllegalStateException("Already liked");
+            }
+            try {
+                likeRepository.save(Like.builder().postId(postId).userId(userId).createdAt(Instant.now()).build());
+            } catch (DuplicateKeyException e) {
+                throw new IllegalStateException("Already liked");
+            }
+            saveOutboxEvent("post.liked", postId, Map.of(
+                    "postId", postId,
+                    "userId", userId,
+                    "authorId", post.getAuthorId()
+            ));
+        });
     }
 
     public void unlikePost(String userId, String postId) {
-        Post post = findPost(postId);
-        Like like = likeRepository.findByPostIdAndUserId(postId, userId)
-                .orElseThrow(() -> new IllegalStateException("Not liked"));
-        likeRepository.delete(like);
-        post.setLikeCount(Math.max(0, post.getLikeCount() - 1));
-        postRepository.save(post);
+        transactionRunner.runInTransaction(() -> {
+            Post post = findPost(postId);
+            Like like = likeRepository.findByPostIdAndUserId(postId, userId)
+                    .orElseThrow(() -> new IllegalStateException("Not liked"));
+            likeRepository.delete(like);
+            saveOutboxEvent("post.unliked", postId, Map.of(
+                    "postId", postId,
+                    "userId", userId,
+                    "authorId", post.getAuthorId()
+            ));
+        });
     }
 
     public CommentResponse addComment(String authorId, String authorUsername, String postId, CreateCommentRequest request) {
-        Post post = findPost(postId);
-        Comment comment = commentRepository.save(Comment.builder()
-                .postId(postId)
-                .authorId(authorId)
-                .authorUsername(authorUsername)
-                .content(request.content())
-                .createdAt(LocalDateTime.now())
-                .build());
-
-        post.setCommentCount(post.getCommentCount() + 1);
-        postRepository.save(post);
-
-        saveOutboxEvent("comment.created", comment.getId(), Map.of(
-                "commentId", comment.getId(),
-                "postId", postId,
-                "authorId", authorId,
-                "postAuthorId", post.getAuthorId()
-        ));
-
+        Comment comment = transactionRunner.inTransaction(() -> {
+            Post post = findPost(postId);
+            Comment saved = commentRepository.save(Comment.builder()
+                    .postId(postId)
+                    .authorId(authorId)
+                    .authorUsername(authorUsername)
+                    .content(request.content())
+                    .createdAt(Instant.now())
+                    .build());
+            saveOutboxEvent("comment.created", saved.getId(), Map.of(
+                    "commentId", saved.getId(),
+                    "postId", postId,
+                    "authorId", authorId,
+                    "postAuthorId", post.getAuthorId()
+            ));
+            return saved;
+        });
         return toCommentResponse(comment);
     }
 
     public List<PostResponse> getAllPosts(String requesterId) {
-        return postRepository.findAllByOrderByCreatedAtDesc()
-                .stream()
-                .map(p -> toResponse(p, requesterId))
+        List<Post> posts = postRepository.findAllByOrderByCreatedAtDesc();
+        Set<String> likedPostIds = findLikedPostIds(requesterId, posts.stream().map(Post::getId).toList());
+        return posts.stream()
+                .map(p -> toResponse(p, likedPostIds.contains(p.getId())))
                 .toList();
     }
 
@@ -126,9 +144,13 @@ public class PostService {
     }
 
     public List<PostResponse> getPostsByIds(List<String> postIds, String requesterId) {
-        return postRepository.findByIdIn(postIds)
-                .stream()
-                .map(p -> toResponse(p, requesterId))
+        Map<String, Post> postsById = postRepository.findByIdIn(postIds).stream()
+                .collect(Collectors.toMap(Post::getId, Function.identity()));
+        Set<String> likedPostIds = findLikedPostIds(requesterId, postIds);
+        return postIds.stream()
+                .map(postsById::get)
+                .filter(Objects::nonNull)
+                .map(p -> toResponse(p, likedPostIds.contains(p.getId())))
                 .toList();
     }
 
@@ -139,12 +161,21 @@ public class PostService {
                 .toList();
     }
 
+    private Set<String> findLikedPostIds(String userId, List<String> postIds) {
+        if (postIds.isEmpty()) {
+            return Set.of();
+        }
+        return likeRepository.findByUserIdAndPostIdIn(userId, postIds).stream()
+                .map(Like::getPostId)
+                .collect(Collectors.toSet());
+    }
+
     private Post findPost(String postId) {
         return postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("Post not found"));
     }
 
-    private PostResponse toResponse(Post post, String requesterId) {
+    private PostResponse toResponse(Post post, boolean likedByMe) {
         return new PostResponse(
                 post.getId(),
                 post.getAuthorId(),
@@ -152,7 +183,7 @@ public class PostService {
                 post.getContent(),
                 post.getLikeCount(),
                 post.getCommentCount(),
-                likeRepository.existsByPostIdAndUserId(post.getId(), requesterId),
+                likedByMe,
                 post.getCreatedAt()
         );
     }
@@ -175,7 +206,7 @@ public class PostService {
                     .aggregateId(aggregateId)
                     .eventType(eventType)
                     .payload(objectMapper.writeValueAsString(payload))
-                    .createdAt(LocalDateTime.now())
+                    .createdAt(Instant.now())
                     .build());
         } catch (JacksonIOException e) {
             throw new RuntimeException(e);

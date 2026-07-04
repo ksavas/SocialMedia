@@ -1,6 +1,6 @@
 package com.socialmedia.post_service.dto;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record CommentResponse(
         String id,
@@ -8,5 +8,5 @@ public record CommentResponse(
         String authorId,
         String authorUsername,
         String content,
-        LocalDateTime createdAt
+        Instant createdAt
 ) {}
