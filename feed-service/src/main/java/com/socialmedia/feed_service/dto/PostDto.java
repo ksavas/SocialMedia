@@ -1,6 +1,6 @@
 package com.socialmedia.feed_service.dto;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record PostDto(
         String id,
@@ -10,5 +10,5 @@ public record PostDto(
         long likeCount,
         long commentCount,
         boolean likedByMe,
-        LocalDateTime createdAt
+        Instant createdAt
 ) {}

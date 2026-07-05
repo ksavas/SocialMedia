@@ -6,7 +6,6 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -45,7 +44,7 @@ public class FeedService {
     public void handleUserFollowed(String followerId, String followingId) {
         List<PostSummary> posts = postServiceClient.getPostsByAuthor(followingId, 50);
         for (PostSummary post : posts) {
-            long score = post.createdAt().toInstant(ZoneOffset.UTC).toEpochMilli();
+            long score = post.createdAt().toEpochMilli();
             addPostToFeed(followerId, followingId, post.id(), score);
         }
     }

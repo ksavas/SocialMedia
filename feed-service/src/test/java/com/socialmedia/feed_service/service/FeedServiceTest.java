@@ -15,7 +15,7 @@ import org.springframework.data.redis.core.SetOperations;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.kafka.core.KafkaTemplate;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -107,9 +107,20 @@ class FeedServiceTest {
     }
 
     @Test
+    void handleUserFollowed_scoresBackfilledPostsByEpochCreationTime() {
+        Instant createdAt = Instant.parse("2026-06-01T10:15:30Z");
+        when(postServiceClient.getPostsByAuthor("author2", 50))
+                .thenReturn(List.of(new PostSummary("p1", "author2", createdAt)));
+
+        feedService.handleUserFollowed("follower1", "author2");
+
+        verify(zSetOps).add("feed:follower1", "p1", (double) createdAt.toEpochMilli());
+    }
+
+    @Test
     void handleUserFollowed_backfillsAuthorPostsIntoFollowerFeed() {
-        PostSummary post1 = new PostSummary("p1", "author2", LocalDateTime.of(2025, 1, 1, 12, 0));
-        PostSummary post2 = new PostSummary("p2", "author2", LocalDateTime.of(2025, 1, 2, 12, 0));
+        PostSummary post1 = new PostSummary("p1", "author2", Instant.parse("2025-01-01T12:00:00Z"));
+        PostSummary post2 = new PostSummary("p2", "author2", Instant.parse("2025-01-02T12:00:00Z"));
         when(postServiceClient.getPostsByAuthor("author2", 50)).thenReturn(List.of(post1, post2));
 
         feedService.handleUserFollowed("follower1", "author2");

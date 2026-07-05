@@ -1,3 +1,5 @@
 package com.socialmedia.feed_service.dto;
 
-public record PostCreatedEvent(String postId, String authorId) {}
+import java.time.Instant;
+
+public record PostCreatedEvent(String postId, String authorId, Instant createdAt) {}
