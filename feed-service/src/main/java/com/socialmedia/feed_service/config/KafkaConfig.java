@@ -6,10 +6,11 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.listener.ConsumerRecordRecoverer;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.util.backoff.ExponentialBackOff;
-import tools.jackson.core.exc.JacksonIOException;
+import tools.jackson.core.JacksonException;
 
 @Configuration
 public class KafkaConfig {
@@ -24,16 +25,10 @@ public class KafkaConfig {
                 (record, ex) -> new TopicPartition(record.topic() + ".DLQ", -1)
         );
 
-        ExponentialBackOff backOff = new ExponentialBackOff(1_000L, 2.0);
-        backOff.setMaxElapsedTime(10_000L);
-
-        DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, backOff);
-        errorHandler.addNotRetryableExceptions(JacksonIOException.class);
-
         ConcurrentKafkaListenerContainerFactory<String, String> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory);
-        factory.setCommonErrorHandler(errorHandler);
+        factory.setCommonErrorHandler(consumerErrorHandler(recoverer));
         return factory;
     }
 
@@ -46,5 +41,14 @@ public class KafkaConfig {
         factory.setConsumerFactory(consumerFactory);
         factory.setCommonErrorHandler(new DefaultErrorHandler());
         return factory;
+    }
+
+    static DefaultErrorHandler consumerErrorHandler(ConsumerRecordRecoverer recoverer) {
+        ExponentialBackOff backOff = new ExponentialBackOff(1_000L, 2.0);
+        backOff.setMaxElapsedTime(10_000L);
+
+        DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, backOff);
+        errorHandler.addNotRetryableExceptions(JacksonException.class);
+        return errorHandler;
     }
 }
