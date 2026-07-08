@@ -1,6 +1,6 @@
 package com.socialmedia.notification_service.dto;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 public record NotificationResponse(
@@ -10,5 +10,5 @@ public record NotificationResponse(
         String actorId,
         String postId,
         boolean read,
-        LocalDateTime createdAt
+        Instant createdAt
 ) {}

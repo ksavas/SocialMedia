@@ -8,14 +8,20 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DuplicateKeyException;
+import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import org.springframework.http.codec.ServerSentEvent;
 
-import java.time.LocalDateTime;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
@@ -36,14 +42,15 @@ class NotificationServiceTest {
         Notification saved = notification("user2", "FOLLOWED", "user1", null);
         when(repository.save(any())).thenReturn(Mono.just(saved));
 
-        StepVerifier.create(service.processUserFollowed("user1", "user2"))
+        StepVerifier.create(service.processUserFollowed("user1", "user2", "e1"))
                 .verifyComplete();
 
         verify(repository).save(argThat(n ->
                 "user2".equals(n.getRecipientId()) &&
                 "FOLLOWED".equals(n.getType()) &&
                 "user1".equals(n.getActorId()) &&
-                n.getPostId() == null
+                n.getPostId() == null &&
+                "e1".equals(n.getEventId())
         ));
     }
 
@@ -52,14 +59,15 @@ class NotificationServiceTest {
         Notification saved = notification("author1", "POST_LIKED", "liker1", "post1");
         when(repository.save(any())).thenReturn(Mono.just(saved));
 
-        StepVerifier.create(service.processPostLiked("liker1", "author1", "post1"))
+        StepVerifier.create(service.processPostLiked("liker1", "author1", "post1", "e2"))
                 .verifyComplete();
 
         verify(repository).save(argThat(n ->
                 "author1".equals(n.getRecipientId()) &&
                 "POST_LIKED".equals(n.getType()) &&
                 "liker1".equals(n.getActorId()) &&
-                "post1".equals(n.getPostId())
+                "post1".equals(n.getPostId()) &&
+                "e2".equals(n.getEventId())
         ));
     }
 
@@ -68,15 +76,38 @@ class NotificationServiceTest {
         Notification saved = notification("postAuthor", "COMMENT_CREATED", "commenter", "post1");
         when(repository.save(any())).thenReturn(Mono.just(saved));
 
-        StepVerifier.create(service.processCommentCreated("commenter", "postAuthor", "post1"))
+        StepVerifier.create(service.processCommentCreated("commenter", "postAuthor", "post1", "e3"))
                 .verifyComplete();
 
         verify(repository).save(argThat(n ->
                 "postAuthor".equals(n.getRecipientId()) &&
                 "COMMENT_CREATED".equals(n.getType()) &&
                 "commenter".equals(n.getActorId()) &&
-                "post1".equals(n.getPostId())
+                "post1".equals(n.getPostId()) &&
+                "e3".equals(n.getEventId())
         ));
+    }
+
+    @Test
+    void processUserFollowed_ignoresDuplicateEventAndDoesNotPush() {
+        when(repository.save(any())).thenReturn(Mono.error(new DuplicateKeyException("duplicate event_id")));
+        List<NotificationResponse> received = new CopyOnWriteArrayList<>();
+        Disposable subscription = service.streamNotifications("user2").subscribe(sse -> received.add(sse.data()));
+
+        StepVerifier.create(service.processUserFollowed("user1", "user2", "e1"))
+                .verifyComplete();
+
+        assertThat(received).isEmpty();
+        subscription.dispose();
+    }
+
+    @Test
+    void processUserFollowed_propagatesNonDuplicateFailures() {
+        when(repository.save(any())).thenReturn(Mono.error(new IllegalStateException("database down")));
+
+        StepVerifier.create(service.processUserFollowed("user1", "user2", "e1"))
+                .expectError(IllegalStateException.class)
+                .verify();
     }
 
     @Test
@@ -123,9 +154,7 @@ class NotificationServiceTest {
 
     @Test
     void streamNotifications_emitsWhenNotificationPushed() {
-        NotificationResponse notification = new NotificationResponse(
-                UUID.randomUUID(), "user1", "FOLLOWED", "user2", null, false, LocalDateTime.now()
-        );
+        NotificationResponse notification = response("user1");
 
         Flux<ServerSentEvent<NotificationResponse>> stream = service.streamNotifications("user1");
 
@@ -136,6 +165,38 @@ class NotificationServiceTest {
                 .verify();
     }
 
+    @Test
+    void streamNotifications_keepsDeliveringToOtherTabs_whenOneTabDisconnects() {
+        NotificationResponse notification = response("user1");
+        List<NotificationResponse> secondTab = new CopyOnWriteArrayList<>();
+        Disposable firstTabSubscription = service.streamNotifications("user1").subscribe();
+        Disposable secondTabSubscription = service.streamNotifications("user1").subscribe(sse -> secondTab.add(sse.data()));
+
+        firstTabSubscription.dispose();
+        service.pushNotification("user1", notification);
+
+        assertThat(secondTab).containsExactly(notification);
+        secondTabSubscription.dispose();
+    }
+
+    @Test
+    void streamNotifications_deliversToNewConnection_afterAllTabsDisconnected() {
+        NotificationResponse notification = response("user1");
+        service.streamNotifications("user1").subscribe().dispose();
+
+        StepVerifier.create(service.streamNotifications("user1"))
+                .then(() -> service.pushNotification("user1", notification))
+                .expectNextMatches(sse -> notification.equals(sse.data()))
+                .thenCancel()
+                .verify(Duration.ofSeconds(5));
+    }
+
+    private NotificationResponse response(String recipientId) {
+        return new NotificationResponse(
+                UUID.randomUUID(), recipientId, "FOLLOWED", "user2", null, false, Instant.now()
+        );
+    }
+
     private Notification notification(String recipientId, String type, String actorId, String postId) {
         return Notification.builder()
                 .id(UUID.randomUUID())
@@ -144,7 +205,7 @@ class NotificationServiceTest {
                 .actorId(actorId)
                 .postId(postId)
                 .read(false)
-                .createdAt(LocalDateTime.now())
+                .createdAt(Instant.now())
                 .build();
     }
 }

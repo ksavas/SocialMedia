@@ -5,7 +5,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Table("notifications")
@@ -30,5 +30,8 @@ public class Notification {
     private boolean read;
 
     @Column("created_at")
-    private LocalDateTime createdAt;
+    private Instant createdAt;
+
+    @Column("event_id")
+    private String eventId;
 }

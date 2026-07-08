@@ -5,7 +5,11 @@ CREATE TABLE IF NOT EXISTS notifications (
     actor_id     VARCHAR(100) NOT NULL,
     post_id      VARCHAR(100),
     is_read      BOOLEAN DEFAULT FALSE,
-    created_at   TIMESTAMP DEFAULT NOW()
+    created_at   TIMESTAMPTZ DEFAULT NOW(),
+    event_id     VARCHAR(100)
 );
 
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS event_id VARCHAR(100);
+
 CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications(recipient_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_notifications_event_id ON notifications(event_id);
