@@ -16,7 +16,7 @@ export class OAuthCallback implements OnInit {
 
   ngOnInit(): void {
     const { idToken, state } = this.oauthService.parseCallbackParams();
-    if (!idToken || !state) {
+    if (!idToken || !state || !this.oauthService.consumePendingState(state)) {
       this.router.navigate(['/register']);
       return;
     }

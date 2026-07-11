@@ -8,6 +8,8 @@ interface OAuthInitResponse {
   nonce: string;
 }
 
+const PENDING_STATE_KEY = 'oauth_pending_state';
+
 @Injectable({ providedIn: 'root' })
 export class OAuthProviderService {
   private readonly http = inject(HttpClient);
@@ -16,6 +18,7 @@ export class OAuthProviderService {
   loginWithGoogle(): Observable<void> {
     return this.http.get<OAuthInitResponse>(this.initUrl).pipe(
       tap(({ state, nonce }) => {
+        sessionStorage.setItem(PENDING_STATE_KEY, state);
         const params = new URLSearchParams({
           client_id: environment.googleClientId,
           redirect_uri: `${window.location.origin}/auth/callback`,
@@ -35,5 +38,11 @@ export class OAuthProviderService {
     const hash = window.location.hash.substring(1);
     const params = new URLSearchParams(hash);
     return { idToken: params.get('id_token'), state: params.get('state') };
+  }
+
+  consumePendingState(returnedState: string): boolean {
+    const pendingState = sessionStorage.getItem(PENDING_STATE_KEY);
+    sessionStorage.removeItem(PENDING_STATE_KEY);
+    return pendingState !== null && pendingState === returnedState;
   }
 }
