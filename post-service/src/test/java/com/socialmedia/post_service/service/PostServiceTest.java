@@ -167,7 +167,10 @@ class PostServiceTest {
         assertThat(response.content()).isEqualTo("Nice!");
         verify(postRepository, never()).incrementCommentCount(anyString());
         verify(postRepository, never()).save(any());
-        verify(outboxEventRepository).save(argThat(e -> e.getEventType().equals("comment.created")));
+        verify(outboxEventRepository).save(argThat(e ->
+                e.getEventType().equals("comment.created")
+                        && e.getAggregateType().equals("Post")
+                        && e.getAggregateId().equals("p1")));
     }
 
     @Test

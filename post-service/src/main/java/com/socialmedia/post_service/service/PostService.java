@@ -117,7 +117,7 @@ public class PostService {
                     .content(request.content())
                     .createdAt(Instant.now())
                     .build());
-            saveOutboxEvent("comment.created", saved.getId(), Map.of(
+            saveOutboxEvent("comment.created", postId, Map.of(
                     "commentId", saved.getId(),
                     "postId", postId,
                     "authorId", authorId,
