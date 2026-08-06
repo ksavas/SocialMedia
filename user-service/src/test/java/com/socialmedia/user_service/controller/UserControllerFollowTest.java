@@ -45,9 +45,9 @@ class UserControllerFollowTest {
     }
 
     @Test
-    void getUsers_shouldReturn403_whenNotAuthenticated() throws Exception {
+    void getUsers_shouldReturn401_whenNotAuthenticated() throws Exception {
         mockMvc.perform(get("/api/users"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -73,9 +73,9 @@ class UserControllerFollowTest {
     }
 
     @Test
-    void follow_shouldReturn403_whenNotAuthenticated() throws Exception {
+    void follow_shouldReturn401_whenNotAuthenticated() throws Exception {
         mockMvc.perform(post("/api/users/{id}/follow", UUID.randomUUID()))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

@@ -51,11 +51,11 @@ class UserControllerTest {
     }
 
     @Test
-    void updateProfile_shouldReturn403_whenNotAuthenticated() throws Exception {
+    void updateProfile_shouldReturn401_whenNotAuthenticated() throws Exception {
         mockMvc.perform(patch("/api/users/me")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
