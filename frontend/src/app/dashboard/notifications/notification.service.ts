@@ -12,6 +12,13 @@ export interface NotificationItem {
   createdAt: string;
 }
 
+interface StreamTicket {
+  ticket: string;
+}
+
+const INITIAL_RECONNECT_DELAY_MS = 1000;
+const MAX_RECONNECT_DELAY_MS = 30000;
+
 @Injectable({ providedIn: 'root' })
 export class NotificationService {
   private readonly http = inject(HttpClient);
@@ -22,31 +29,69 @@ export class NotificationService {
   readonly newPostCount = signal<number>(0);
 
   private eventSource?: EventSource;
+  private reconnectTimer?: ReturnType<typeof setTimeout>;
+  private reconnectDelayMs = INITIAL_RECONNECT_DELAY_MS;
+  private active = false;
 
   connect(): void {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
-    this.http.get<NotificationItem[]>(this.baseUrl).subscribe({
-      next: (list) => this.notifications.set(list),
-    });
-
-    this.eventSource = new EventSource(`${this.baseUrl}/stream?token=${token}`);
-    this.eventSource.onmessage = (event) => {
-      const notification: NotificationItem = JSON.parse(event.data);
-      if (notification.type === 'NEW_POST') {
-        this.newPostCount.update((n) => n + 1);
-      } else {
-        this.notifications.update((list) => [notification, ...list]);
-      }
-    };
+    if (!localStorage.getItem('token')) return;
+    this.active = true;
+    this.openStream();
   }
 
   disconnect(): void {
-    this.eventSource?.close();
-    this.eventSource = undefined;
+    this.active = false;
+    clearTimeout(this.reconnectTimer);
+    this.closeStream();
+    this.reconnectDelayMs = INITIAL_RECONNECT_DELAY_MS;
     this.notifications.set([]);
     this.newPostCount.set(0);
+  }
+
+  private openStream(): void {
+    if (!this.active || !localStorage.getItem('token')) return;
+
+    this.http.post<StreamTicket>(`${this.baseUrl}/stream-ticket`, null).subscribe({
+      next: ({ ticket }) => {
+        if (!this.active) return;
+        const source = new EventSource(`${this.baseUrl}/stream?ticket=${encodeURIComponent(ticket)}`);
+        source.onopen = () => {
+          this.reconnectDelayMs = INITIAL_RECONNECT_DELAY_MS;
+          this.loadNotifications();
+        };
+        source.onmessage = (event) => this.handleMessage(JSON.parse(event.data));
+        source.onerror = () => this.scheduleReconnect();
+        this.eventSource = source;
+      },
+      error: () => this.scheduleReconnect(),
+    });
+  }
+
+  private scheduleReconnect(): void {
+    this.closeStream();
+    if (!this.active) return;
+    clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = setTimeout(() => this.openStream(), this.reconnectDelayMs);
+    this.reconnectDelayMs = Math.min(this.reconnectDelayMs * 2, MAX_RECONNECT_DELAY_MS);
+  }
+
+  private closeStream(): void {
+    this.eventSource?.close();
+    this.eventSource = undefined;
+  }
+
+  private loadNotifications(): void {
+    this.http.get<NotificationItem[]>(this.baseUrl).subscribe({
+      next: (list) => this.notifications.set(list),
+    });
+  }
+
+  private handleMessage(notification: NotificationItem): void {
+    if (notification.type === 'NEW_POST') {
+      this.newPostCount.update((n) => n + 1);
+    } else {
+      this.notifications.update((list) => [notification, ...list]);
+    }
   }
 
   clearNewPosts(): void {
