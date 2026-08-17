@@ -1,11 +1,18 @@
 package com.socialmedia.user_service.exception;
 
 import com.socialmedia.user_service.dto.ErrorResponse;
+import com.socialmedia.user_service.security.RefreshTokenCookies;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestControllerAdvice
+@RequiredArgsConstructor
 public class GlobalExceptionHandler {
+
+    private final RefreshTokenCookies refreshTokenCookies;
 
     @ExceptionHandler(UserAlreadyExistsException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
@@ -17,6 +24,13 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public ErrorResponse handleInvalidToken(InvalidTokenException ex) {
         return new ErrorResponse(ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidRefreshTokenException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidRefreshToken(InvalidRefreshTokenException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .header(HttpHeaders.SET_COOKIE, refreshTokenCookies.clear())
+                .body(new ErrorResponse(ex.getMessage()));
     }
 
     @ExceptionHandler(InvalidCredentialsException.class)

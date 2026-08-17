@@ -41,19 +41,19 @@ class UserServiceTest {
     }
 
     @Test
-    void register_shouldReturnAuthResponse_whenValidRequest() {
+    void register_shouldReturnSavedUser_whenValidRequest() {
         when(userRepository.existsByEmail(registerRequest.email())).thenReturn(false);
         when(userRepository.existsByUsername(registerRequest.username())).thenReturn(false);
         when(passwordEncoder.encode(registerRequest.password())).thenReturn("encodedPassword");
         when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArgument(0));
-        when(jwtService.generateToken(any(User.class))).thenReturn("jwt-token");
 
-        AuthResponse response = userService.register(registerRequest);
+        User user = userService.register(registerRequest);
 
-        assertThat(response.token()).isEqualTo("jwt-token");
-        assertThat(response.username()).isEqualTo("testuser");
-        assertThat(response.provider()).isEqualTo("LOCAL");
+        assertThat(user.getUsername()).isEqualTo("testuser");
+        assertThat(user.getEmail()).isEqualTo("test@example.com");
+        assertThat(user.getProvider()).isEqualTo(Provider.LOCAL);
         verify(userRepository).save(any(User.class));
+        verifyNoInteractions(jwtService);
     }
 
     @Test
@@ -85,7 +85,6 @@ class UserServiceTest {
         when(userRepository.existsByUsername(any())).thenReturn(false);
         when(passwordEncoder.encode("password123")).thenReturn("encodedPassword");
         when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArgument(0));
-        when(jwtService.generateToken(any(User.class))).thenReturn("jwt-token");
 
         userService.register(registerRequest);
 

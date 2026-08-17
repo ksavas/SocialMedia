@@ -20,7 +20,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
-    public AuthResponse register(RegisterRequest request) {
+    public User register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.email())) {
             throw new UserAlreadyExistsException("Email already exists");
         }
@@ -35,9 +35,7 @@ public class UserService {
                 .displayName(request.displayName())
                 .build();
 
-        userRepository.save(user);
-
-        return new AuthResponse(jwtService.generateToken(user), user.getUsername(), user.getProvider().name());
+        return userRepository.save(user);
     }
 
     public AuthResponse updateProfile(String currentUsername, UpdateProfileRequest request) {
