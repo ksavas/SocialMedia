@@ -1,6 +1,7 @@
 import { Component, HostListener, inject, OnInit, OnDestroy, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { DatePipe } from '@angular/common';
+import { AuthService } from '../auth/auth';
 import { AuthStateService } from '../auth/auth-state.service';
 import { NotificationService, NotificationItem } from './notifications/notification.service';
 
@@ -13,6 +14,7 @@ import { NotificationService, NotificationItem } from './notifications/notificat
 export class Dashboard implements OnInit, OnDestroy {
   readonly auth = inject(AuthStateService);
   readonly notificationSvc = inject(NotificationService);
+  private readonly authApi = inject(AuthService);
   private readonly router = inject(Router);
 
   readonly showPanel = signal(false);
@@ -43,6 +45,7 @@ export class Dashboard implements OnInit, OnDestroy {
   }
 
   logout(): void {
+    this.authApi.logout().subscribe({ error: () => undefined });
     this.notificationSvc.disconnect();
     this.auth.logout();
     this.router.navigate(['/register']);

@@ -47,15 +47,31 @@ export class AuthService {
   constructor(private http: HttpClient) {}
 
   register(request: RegisterRequest): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${this.authUrl}/register`, request);
+    return this.http.post<AuthResponse>(`${this.authUrl}/register`, request, { withCredentials: true });
   }
 
   login(username: string, password: string): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${this.authUrl}/login`, { provider: 'LOCAL', username, password });
+    return this.http.post<AuthResponse>(
+      `${this.authUrl}/login`,
+      { provider: 'LOCAL', username, password },
+      { withCredentials: true },
+    );
   }
 
   oauthLogin(provider: 'GOOGLE' | 'MICROSOFT', idToken: string, state: string): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${this.authUrl}/login`, { provider, idToken, state });
+    return this.http.post<AuthResponse>(
+      `${this.authUrl}/login`,
+      { provider, idToken, state },
+      { withCredentials: true },
+    );
+  }
+
+  refresh(): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>(`${this.authUrl}/refresh`, null, { withCredentials: true });
+  }
+
+  logout(): Observable<void> {
+    return this.http.post<void>(`${this.authUrl}/logout`, null, { withCredentials: true });
   }
 
   updateProfile(request: UpdateProfileRequest): Observable<AuthResponse> {
