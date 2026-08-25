@@ -2,7 +2,7 @@
 
 A social media backend designed the way real social networks are designed: users sign up (locally or with Google), follow each other, post, like and comment, and get a personalized home feed plus real-time notifications.
 
-It is built as four Spring Boot microservices and an Angular frontend, communicating through Apache Kafka, with each service using the data store that fits its access pattern. The focus is on the system design behind a feed: read-heavy optimization, reliable event delivery, idempotency, contention handling and failure recovery, all verified against the running system.
+It is built as four Spring Boot microservices and an Angular frontend, communicating asynchronously through Apache Kafka and synchronously over REST, with each service using the data store that fits its access pattern. The focus is on the system design behind a feed: read-heavy optimization, reliable event delivery, idempotency, contention handling and failure recovery, all verified against the running system.
 
 ```bash
 docker compose up --build
@@ -91,6 +91,10 @@ MongoDB recommends retrying a transaction that fails with the `TransientTransact
 - Malformed messages (JSON parsing errors) are classified as non-retryable and go straight to the DLQ, since retrying cannot fix them.
 - Records that still fail are published to `<topic>.DLQ` by `DeadLetterPublishingRecoverer`. feed-service also has a `DlqConsumer` for its own DLQ topics, with a separate consumer group and error handler so a failing DLQ record cannot loop back into a DLQ.
 
+Decisions 2, 3 and 6 together form the event delivery path:
+
+![Event delivery and failure handling](docs/reliability.svg)
+
 ### 7. Polyglot persistence and why posts use MongoDB
 
 PostgreSQL holds relational data with strong integrity needs (users, the follow graph). Redis holds feeds and short-lived OAuth state. Posts live in MongoDB.
@@ -118,6 +122,8 @@ notification-service is built on Spring WebFlux and R2DBC, so holding many long-
   - The ID token's signature, expiry and audience are verified server-side, its `nonce` must match, and Google accounts must have a verified email.
   - An OAuth login cannot take over an email already registered with a different method. OAuth users get a BCrypt-hashed random password, so password login stays impossible until they set one.
 
+![Google Sign-In flow](docs/flow-google-sign-in.svg)
+
 ### 10. Time handling
 
 All timestamps are `Instant` (UTC) end to end, serialized as ISO-8601 with `Z`. Feed scores use the post's creation time carried in the event, so posts backfilled on follow and posts fanned out live are ordered on the same clock regardless of server time zones.
@@ -140,68 +146,15 @@ Outbox events are keyed by aggregate ID (follower ID for follow events, post ID 
 
 ### Creating a post
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant C as Client
-    participant PS as post-service
-    participant K as Kafka
-    participant FS as feed-service
-    participant US as user-service
-    participant R as Redis
-    participant NS as notification-service
-
-    C->>PS: POST /api/posts
-    PS->>PS: transaction: save post + outbox event
-    PS-->>C: 201 Created
-    PS->>K: outbox poller publishes post.created, waits for ack
-    K->>FS: post.created
-    FS->>US: GET /api/internal/users/{authorId}/follower-ids
-    US-->>FS: follower IDs
-    FS->>R: ZADD feed:{userId} for the author and each follower
-    FS->>K: feed.updated (one per follower)
-    K->>NS: feed.updated
-    NS-->>C: SSE NEW_POST, "new posts" banner appears
-```
+![Creating a post](docs/flow-create-post.svg)
 
 ### Liking a post
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant C as Client
-    participant PS as post-service
-    participant K as Kafka
-    participant CC as post-service counter consumer
-    participant NS as notification-service
-
-    C->>PS: POST /api/posts/{id}/like
-    PS->>PS: transaction: insert like + outbox event (post document untouched)
-    PS-->>C: 204 No Content
-    PS->>K: post.liked (key = postId)
-    K->>CC: post.liked, applied sequentially per post
-    CC->>CC: transaction: record eventId + $inc likeCount
-    K->>NS: post.liked
-    NS-->>C: SSE POST_LIKED to the author
-```
+![Liking a post](docs/flow-like-post.svg)
 
 ### Reading the feed
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant C as Client
-    participant FS as feed-service
-    participant R as Redis
-    participant PS as post-service
-
-    C->>FS: GET /api/feed?page=0&size=20
-    FS->>R: ZREVRANGE feed:{userId} 0 19
-    R-->>FS: post IDs, newest first
-    FS->>PS: POST /api/internal/posts/batch
-    PS-->>FS: posts in the requested order, with likedByMe from one query
-    FS-->>C: feed page
-```
+![Reading the feed](docs/flow-read-feed.svg)
 
 ## Services in detail
 

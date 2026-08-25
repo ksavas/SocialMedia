@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 366" width="1040" height="366" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow-gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#475569"/></marker>
+    <marker id="arrow-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#EA580C"/></marker>
+  </defs>
+  <rect x="0" y="0" width="1040" height="366" rx="12" fill="#ffffff"/>
+  <path d="M145,66 V316" stroke="#CBD5E1" stroke-width="1.5" stroke-dasharray="4 4" fill="none"/>
+  <path d="M395,66 V316" stroke="#CBD5E1" stroke-width="1.5" stroke-dasharray="4 4" fill="none"/>
+  <path d="M645,66 V316" stroke="#CBD5E1" stroke-width="1.5" stroke-dasharray="4 4" fill="none"/>
+  <path d="M895,66 V316" stroke="#CBD5E1" stroke-width="1.5" stroke-dasharray="4 4" fill="none"/>
+  <rect x="60" y="20" width="170" height="46" rx="8" fill="#F1F5F9" stroke="#475569" stroke-width="1.5"/>
+  <text x="145" y="48" font-size="13" font-weight="600" text-anchor="middle" fill="#0F172A">Angular SPA</text>
+  <rect x="310" y="20" width="170" height="46" rx="8" fill="#EEF2FF" stroke="#6366F1" stroke-width="1.5"/>
+  <text x="395" y="40" font-size="13" font-weight="600" text-anchor="middle" fill="#1E1B4B">feed-service</text>
+  <text x="395" y="56" font-size="10.5" text-anchor="middle" fill="#4338CA">:8084</text>
+  <rect x="560" y="20" width="170" height="46" rx="8" fill="#F0FDF4" stroke="#16A34A" stroke-width="1.5"/>
+  <text x="645" y="40" font-size="13" font-weight="600" text-anchor="middle" fill="#14532D">Redis</text>
+  <text x="645" y="56" font-size="10.5" text-anchor="middle" fill="#166534">feeds</text>
+  <rect x="810" y="20" width="170" height="46" rx="8" fill="#EEF2FF" stroke="#6366F1" stroke-width="1.5"/>
+  <text x="895" y="40" font-size="13" font-weight="600" text-anchor="middle" fill="#1E1B4B">post-service</text>
+  <text x="895" y="56" font-size="10.5" text-anchor="middle" fill="#4338CA">:8082</text>
+  <path d="M151,110 H388" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrow-gray)"/>
+  <text x="270" y="103" font-size="11" text-anchor="middle" fill="#334155" stroke="#ffffff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">1 · GET /api/feed?page=0&amp;size=20</text>
+  <path d="M401,146 H638" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrow-gray)"/>
+  <text x="520" y="139" font-size="11" text-anchor="middle" fill="#334155" stroke="#ffffff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">2 · ZREVRANGE feed:{userId} 0 19</text>
+  <path d="M639,182 H402" stroke="#475569" stroke-width="1.5" fill="none" stroke-dasharray="5 4" marker-end="url(#arrow-gray)"/>
+  <text x="520" y="175" font-size="11" text-anchor="middle" fill="#334155" stroke="#ffffff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">3 · post IDs, newest first</text>
+  <path d="M401,218 H888" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrow-gray)"/>
+  <text x="645" y="211" font-size="11" text-anchor="middle" fill="#334155" stroke="#ffffff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">4 · POST /api/internal/posts/batch</text>
+  <path d="M889,254 H402" stroke="#475569" stroke-width="1.5" fill="none" stroke-dasharray="5 4" marker-end="url(#arrow-gray)"/>
+  <text x="645" y="247" font-size="11" text-anchor="middle" fill="#334155" stroke="#ffffff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">5 · posts in requested order + likedByMe</text>
+  <path d="M389,290 H152" stroke="#475569" stroke-width="1.5" fill="none" stroke-dasharray="5 4" marker-end="url(#arrow-gray)"/>
+  <text x="270" y="283" font-size="11" text-anchor="middle" fill="#334155" stroke="#ffffff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">6 · feed page</text>
+  <text x="520" y="346" font-size="11" text-anchor="middle" fill="#64748B">Gray: synchronous requests · Dashed: responses</text>
+</svg>
