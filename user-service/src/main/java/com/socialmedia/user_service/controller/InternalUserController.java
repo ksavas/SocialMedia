@@ -17,6 +17,16 @@ public class InternalUserController {
 
     private final FollowService followService;
 
+    @GetMapping("/{userId}/follower-count")
+    public long getFollowerCount(@PathVariable UUID userId) {
+        return followService.getFollowerCount(userId);
+    }
+
+    @GetMapping("/{userId}/following-ids")
+    public List<String> getFollowingIds(@PathVariable UUID userId) {
+        return followService.getFollowingIds(userId);
+    }
+
     @GetMapping("/{userId}/follower-ids")
     public List<String> getFollowerIds(@PathVariable UUID userId) {
         return followService.getFollowerIds(userId);

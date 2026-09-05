@@ -46,6 +46,16 @@ class FollowServiceTest {
     }
 
     @Test
+    void exposesFollowerCountAndCurrentFollowingIdsForHybridFeed() {
+        when(followRepository.countByFollowingId(targetUserId)).thenReturn(10000L);
+        when(followRepository.findFollowingIdsByFollowerId(currentUserId)).thenReturn(List.of(targetUserId));
+
+        assertThat(followService.getFollowerCount(targetUserId)).isEqualTo(10000L);
+        assertThat(followService.getFollowingIds(currentUserId)).containsExactly(targetUserId.toString());
+        verify(followRepository, never()).findFollowerIdsByFollowingId(any());
+    }
+
+    @Test
     void follow_shouldSaveFollowAndOutboxEvent() {
         when(userRepository.findByUsername("current")).thenReturn(Optional.of(currentUser));
         when(userRepository.findById(targetUserId)).thenReturn(Optional.of(targetUser));

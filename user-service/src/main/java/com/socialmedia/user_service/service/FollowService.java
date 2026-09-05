@@ -97,6 +97,18 @@ public class FollowService {
     }
 
     @Transactional(readOnly = true)
+    public long getFollowerCount(UUID userId) {
+        return followRepository.countByFollowingId(userId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> getFollowingIds(UUID userId) {
+        return followRepository.findFollowingIdsByFollowerId(userId).stream()
+                .map(UUID::toString)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<String> getFollowerIds(UUID userId) {
         return followRepository.findFollowerIdsByFollowingId(userId)
                 .stream()
