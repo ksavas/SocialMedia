@@ -12,6 +12,11 @@ public interface PostRepository extends MongoRepository<Post, String> {
     List<Post> findByAuthorIdOrderByCreatedAtDesc(String authorId, Pageable pageable);
     List<Post> findAllByOrderByCreatedAtDesc();
     List<Post> findByIdIn(List<String> ids);
+    List<Post> findByFanoutOnReadTrueAndAuthorIdInOrderByCreatedAtDescIdDesc(List<String> authorIds, Pageable pageable);
+
+    @Query("{ '_id': ?0 }")
+    @Update("{ '$set': { 'fanoutOnRead': true } }")
+    void markForPull(String postId);
 
     @Query("{ '_id': ?0 }")
     @Update("{ '$inc': { 'likeCount': 1 } }")

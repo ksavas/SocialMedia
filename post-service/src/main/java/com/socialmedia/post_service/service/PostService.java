@@ -19,7 +19,9 @@ import com.socialmedia.post_service.transaction.TransactionRunner;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.List;
@@ -140,6 +142,24 @@ public class PostService {
         return postRepository.findByAuthorIdOrderByCreatedAtDesc(authorId, PageRequest.of(0, limit))
                 .stream()
                 .map(p -> new PostSummary(p.getId(), p.getAuthorId(), p.getCreatedAt()))
+                .toList();
+    }
+
+    public void markForPull(String postId) {
+        postRepository.markForPull(postId);
+    }
+
+    public List<PostSummary> getPullFeedPosts(List<String> authorIds, int limit) {
+        if (authorIds == null || limit < 1 || limit > 1000 || authorIds.stream().anyMatch(id -> id == null || id.isBlank())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Invalid pull feed request");
+        }
+        if (authorIds.isEmpty()) {
+            return List.of();
+        }
+        return postRepository.findByFanoutOnReadTrueAndAuthorIdInOrderByCreatedAtDescIdDesc(
+                        authorIds.stream().distinct().toList(), PageRequest.of(0, limit)).stream()
+                .map(post -> new PostSummary(post.getId(), post.getAuthorId(), post.getCreatedAt()))
                 .toList();
     }
 

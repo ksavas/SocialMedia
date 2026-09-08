@@ -7,6 +7,7 @@ import com.socialmedia.post_service.dto.CommentResponse;
 import com.socialmedia.post_service.dto.CreateCommentRequest;
 import com.socialmedia.post_service.dto.CreatePostRequest;
 import com.socialmedia.post_service.dto.PostResponse;
+import com.socialmedia.post_service.dto.PostSummary;
 import com.socialmedia.post_service.repository.CommentRepository;
 import com.socialmedia.post_service.repository.LikeRepository;
 import com.socialmedia.post_service.repository.OutboxEventRepository;
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.domain.PageRequest;
 
 import java.time.Instant;
 import java.util.List;
@@ -52,6 +54,33 @@ class PostServiceTest {
                 return work.get();
             }
         };
+    }
+
+    @Test
+    void pullFeedReturnsPersistentlyRoutedPostsInBoundedOrder() {
+        Post post = Post.builder().id("p1").authorId("celebrity").createdAt(Instant.ofEpochMilli(1000)).build();
+        when(postRepository.findByFanoutOnReadTrueAndAuthorIdInOrderByCreatedAtDescIdDesc(
+                eq(List.of("celebrity")), any())).thenReturn(List.of(post));
+
+        var result = postService.getPullFeedPosts(List.of("celebrity"), 1000);
+
+        assertThat(result).extracting(PostSummary::id).containsExactly("p1");
+        verify(postRepository).findByFanoutOnReadTrueAndAuthorIdInOrderByCreatedAtDescIdDesc(
+                eq(List.of("celebrity")), eq(PageRequest.of(0, 1000)));
+    }
+
+    @Test
+    void pullRegistrationUpdatesOnlyDeliveryFlagWithoutOverwritingCounterOrContent() {
+        postService.markForPull("p1");
+
+        verify(postRepository).markForPull("p1");
+        verify(postRepository, never()).save(any());
+    }
+
+    @Test
+    void emptyPullAudienceDoesNotQueryEveryAuthorsPosts() {
+        assertThat(postService.getPullFeedPosts(List.of(), 20)).isEmpty();
+        verifyNoInteractions(postRepository);
     }
 
     @Test
