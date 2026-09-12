@@ -3,6 +3,7 @@ package com.socialmedia.feed_service.service;
 import com.socialmedia.feed_service.dto.BatchPostRequest;
 import com.socialmedia.feed_service.dto.PostDto;
 import com.socialmedia.feed_service.dto.PostSummary;
+import com.socialmedia.feed_service.dto.PullFeedRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
@@ -17,6 +18,25 @@ public class PostServiceClient {
 
     public PostServiceClient(@Value("${services.post-service.url}") String baseUrl) {
         this.restClient = RestClient.builder().baseUrl(baseUrl).build();
+    }
+
+    public List<PostSummary> getPullPosts(List<String> authorIds, int limit) {
+        List<PostSummary> posts = restClient.post()
+                .uri("/api/internal/posts/pull-feed")
+                .body(new PullFeedRequest(authorIds, limit))
+                .retrieve()
+                .body(new ParameterizedTypeReference<List<PostSummary>>() {});
+        if (posts == null) {
+            throw new IllegalStateException("Missing pull feed response");
+        }
+        return posts;
+    }
+
+    public void markForPull(String postId) {
+        restClient.put()
+                .uri("/api/internal/posts/{postId}/fanout-on-read", postId)
+                .retrieve()
+                .toBodilessEntity();
     }
 
     public List<PostSummary> getPostsByAuthor(String authorId, int limit) {

@@ -208,6 +208,7 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       USER_SERVICE_URL: http://user-service:8081
       POST_SERVICE_URL: http://post-service:8082
+      CELEBRITY_FOLLOWER_THRESHOLD: ${CELEBRITY_FOLLOWER_THRESHOLD:-10000}
       JWT_SECRET: ${JWT_SECRET:-local-dev-only-secret-key-change-me-0123456789}
     networks:
       - social-network

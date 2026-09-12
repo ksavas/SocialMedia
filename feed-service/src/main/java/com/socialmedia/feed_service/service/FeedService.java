@@ -2,12 +2,19 @@ package com.socialmedia.feed_service.service;
 
 import com.socialmedia.feed_service.dto.PostSummary;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.HttpStatus;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -21,7 +28,17 @@ public class FeedService {
     private final PostServiceClient postServiceClient;
     private final KafkaTemplate<String, String> kafkaTemplate;
 
+    @Value("${feed.celebrity-follower-threshold:10000}")
+    private long celebrityFollowerThreshold = 10_000;
+
     public void handlePostCreated(String postId, String authorId, long epochMillis) {
+        if (celebrityFollowerThreshold < 1) {
+            throw new IllegalStateException("Celebrity follower threshold must be positive");
+        }
+        if (userServiceClient.getFollowerCount(authorId) >= celebrityFollowerThreshold) {
+            postServiceClient.markForPull(postId);
+            return;
+        }
         addPostToFeed(authorId, authorId, postId, epochMillis);
         List<String> followerIds = userServiceClient.getFollowerIds(authorId);
         for (String followerId : followerIds) {
@@ -62,10 +79,35 @@ public class FeedService {
     }
 
     public List<String> getFeedPostIds(String userId, int page, int size) {
+        if (page < 0 || size < 1 || size > 100) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid feed page or size");
+        }
         long start = (long) page * size;
-        long end = start + size - 1;
-        Set<String> postIds = redisTemplate.opsForZSet().reverseRange("feed:" + userId, start, end);
-        return postIds == null ? List.of() : new ArrayList<>(postIds);
+        if (start >= FEED_MAX_SIZE) {
+            return List.of();
+        }
+        Map<String, Long> candidates = new HashMap<>();
+        var pushed = redisTemplate.opsForZSet().reverseRangeWithScores("feed:" + userId, 0, FEED_MAX_SIZE - 1);
+        if (pushed != null) {
+            for (var post : pushed) {
+                if (post.getValue() != null && post.getScore() != null) {
+                    candidates.put(post.getValue(), post.getScore().longValue());
+                }
+            }
+        }
+        Set<String> authorIds = new LinkedHashSet<>(userServiceClient.getFollowingIds(userId));
+        authorIds.add(userId);
+        for (PostSummary post : postServiceClient.getPullPosts(new ArrayList<>(authorIds), FEED_MAX_SIZE)) {
+            candidates.merge(post.id(), post.createdAt().toEpochMilli(), Math::max);
+        }
+        return candidates.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue(Comparator.reverseOrder())
+                        .thenComparing(Map.Entry.comparingByKey(Comparator.reverseOrder())))
+                .limit(FEED_MAX_SIZE)
+                .skip(start)
+                .limit(size)
+                .map(Map.Entry::getKey)
+                .toList();
     }
 
     private void addPostToFeed(String userId, String authorId, String postId, long epochMillis) {

@@ -16,6 +16,28 @@ public class UserServiceClient {
         this.restClient = RestClient.builder().baseUrl(baseUrl).build();
     }
 
+    public List<String> getFollowingIds(String userId) {
+        List<String> ids = restClient.get()
+                .uri("/api/internal/users/{userId}/following-ids", userId)
+                .retrieve()
+                .body(new ParameterizedTypeReference<List<String>>() {});
+        if (ids == null) {
+            throw new IllegalStateException("Missing following IDs");
+        }
+        return ids;
+    }
+
+    public long getFollowerCount(String userId) {
+        Long count = restClient.get()
+                .uri("/api/internal/users/{userId}/follower-count", userId)
+                .retrieve()
+                .body(Long.class);
+        if (count == null) {
+            throw new IllegalStateException("Missing follower count");
+        }
+        return count;
+    }
+
     public List<String> getFollowerIds(String userId) {
         return restClient.get()
                 .uri("/api/internal/users/{userId}/follower-ids", userId)

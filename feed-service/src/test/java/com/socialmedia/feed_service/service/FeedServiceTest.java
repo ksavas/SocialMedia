@@ -10,10 +10,13 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.data.redis.core.DefaultTypedTuple;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.SetOperations;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.LinkedHashSet;
@@ -21,6 +24,7 @@ import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -48,6 +52,107 @@ class FeedServiceTest {
     void setUp() {
         when(redisTemplate.opsForZSet()).thenReturn(zSetOps);
         when(redisTemplate.opsForSet()).thenReturn(setOps);
+    }
+
+    @Test
+    void accountBelowConfiguredThresholdStillPushesPosts() {
+        ReflectionTestUtils.setField(feedService, "celebrityFollowerThreshold", 3L);
+        when(userServiceClient.getFollowerCount("author1")).thenReturn(2L);
+        when(userServiceClient.getFollowerIds("author1")).thenReturn(List.of("f1", "f2"));
+
+        feedService.handlePostCreated("normal", "author1", 1000L);
+
+        verify(zSetOps).add("feed:f1", "normal", 1000.0);
+        verify(zSetOps).add("feed:f2", "normal", 1000.0);
+        verify(postServiceClient, never()).markForPull(anyString());
+    }
+
+    @Test
+    void loweringFollowerCountDoesNotRemoveEarlierPullPostsFromReadPath() {
+        ReflectionTestUtils.setField(feedService, "celebrityFollowerThreshold", 3L);
+        when(userServiceClient.getFollowerCount("author")).thenReturn(3L, 2L);
+        when(userServiceClient.getFollowerIds("author")).thenReturn(List.of("reader"));
+        feedService.handlePostCreated("old-pull", "author", 1000L);
+        feedService.handlePostCreated("new-push", "author", 2000L);
+        when(userServiceClient.getFollowingIds("reader")).thenReturn(List.of("author"));
+        when(zSetOps.reverseRangeWithScores("feed:reader", 0, 999)).thenReturn(Set.of(
+                new DefaultTypedTuple<>("new-push", 2000.0)));
+        when(postServiceClient.getPullPosts(List.of("author", "reader"), 1000)).thenReturn(List.of(
+                new PostSummary("old-pull", "author", Instant.ofEpochMilli(1000))));
+
+        assertThat(feedService.getFeedPostIds("reader", 0, 20)).containsExactly("new-push", "old-pull");
+        verify(postServiceClient).markForPull("old-pull");
+        verify(postServiceClient, never()).markForPull("new-push");
+    }
+
+    @Test
+    void pageOutsideFeedWindowReturnsEmptyWithoutCallingDownstreamServices() {
+        assertThat(feedService.getFeedPostIds("reader", 50, 20)).isEmpty();
+        verifyNoInteractions(userServiceClient, postServiceClient);
+    }
+
+    @Test
+    void invalidPaginationIsRejected() {
+        assertThatThrownBy(() -> feedService.getFeedPostIds("reader", -1, 20))
+                .isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> feedService.getFeedPostIds("reader", 0, 0))
+                .isInstanceOf(ResponseStatusException.class);
+    }
+
+    @Test
+    void hybridFeedMergesBeforePaginationAndDeduplicatesPushAndPull() {
+        when(userServiceClient.getFollowingIds("reader")).thenReturn(List.of("celebrity"));
+        when(zSetOps.reverseRangeWithScores("feed:reader", 0, 999)).thenReturn(new LinkedHashSet<>(List.of(
+                new DefaultTypedTuple<>("p1", 1000.0),
+                new DefaultTypedTuple<>("p3", 3000.0))));
+        when(postServiceClient.getPullPosts(List.of("celebrity", "reader"), 1000)).thenReturn(List.of(
+                new PostSummary("p4", "celebrity", Instant.ofEpochMilli(4000)),
+                new PostSummary("p3", "celebrity", Instant.ofEpochMilli(3000)),
+                new PostSummary("p2", "celebrity", Instant.ofEpochMilli(2000))));
+
+        assertThat(feedService.getFeedPostIds("reader", 0, 2)).containsExactly("p4", "p3");
+        assertThat(feedService.getFeedPostIds("reader", 1, 2)).containsExactly("p2", "p1");
+    }
+
+    @Test
+    void hybridFeedIncludesOwnPullPostsWithoutFollowingAnyone() {
+        when(userServiceClient.getFollowingIds("reader")).thenReturn(List.of());
+        when(postServiceClient.getPullPosts(List.of("reader"), 1000)).thenReturn(List.of(
+                new PostSummary("mine", "reader", Instant.ofEpochMilli(4000))));
+
+        assertThat(feedService.getFeedPostIds("reader", 0, 20)).containsExactly("mine");
+    }
+
+    @Test
+    void hybridFeedOrdersEqualScoresByDescendingPostId() {
+        when(userServiceClient.getFollowingIds("reader")).thenReturn(List.of("author"));
+        when(zSetOps.reverseRangeWithScores("feed:reader", 0, 999)).thenReturn(Set.of(
+                new DefaultTypedTuple<>("a", 1000.0)));
+        when(postServiceClient.getPullPosts(List.of("author", "reader"), 1000)).thenReturn(List.of(
+                new PostSummary("b", "author", Instant.ofEpochMilli(1000))));
+
+        assertThat(feedService.getFeedPostIds("reader", 0, 20)).containsExactly("b", "a");
+    }
+
+    @Test
+    void failedPullRegistrationIsRetriedInsteadOfFallingBackToHugeFanout() {
+        when(userServiceClient.getFollowerCount("author1")).thenReturn(10_000L);
+        doThrow(new IllegalStateException("post-service unavailable")).when(postServiceClient).markForPull("p1");
+
+        assertThatThrownBy(() -> feedService.handlePostCreated("p1", "author1", 1000))
+                .isInstanceOf(IllegalStateException.class);
+        verify(userServiceClient, never()).getFollowerIds(anyString());
+    }
+
+    @Test
+    void celebrityPostUsesPullWithoutLoadingFollowersOrSendingPerFollowerEvents() {
+        when(userServiceClient.getFollowerCount("author1")).thenReturn(10_000L);
+
+        feedService.handlePostCreated("p1", "author1", 1000L);
+
+        verify(postServiceClient).markForPull("p1");
+        verify(userServiceClient, never()).getFollowerIds(anyString());
+        verifyNoInteractions(zSetOps, setOps, kafkaTemplate);
     }
 
     @Test
@@ -148,8 +253,10 @@ class FeedServiceTest {
 
     @Test
     void getFeedPostIds_returnsPaginatedPostIdsFromRedis() {
-        LinkedHashSet<String> stored = new LinkedHashSet<>(List.of("p3", "p2", "p1"));
-        when(zSetOps.reverseRange("feed:user1", 0L, 19L)).thenReturn(stored);
+        when(zSetOps.reverseRangeWithScores("feed:user1", 0L, 999L)).thenReturn(new LinkedHashSet<>(List.of(
+                new DefaultTypedTuple<>("p3", 3000.0),
+                new DefaultTypedTuple<>("p2", 2000.0),
+                new DefaultTypedTuple<>("p1", 1000.0))));
 
         List<String> result = feedService.getFeedPostIds("user1", 0, 20);
 
@@ -158,7 +265,7 @@ class FeedServiceTest {
 
     @Test
     void getFeedPostIds_returnsEmptyListWhenFeedIsEmpty() {
-        when(zSetOps.reverseRange("feed:user1", 0L, 19L)).thenReturn(null);
+        when(zSetOps.reverseRangeWithScores("feed:user1", 0L, 999L)).thenReturn(null);
 
         List<String> result = feedService.getFeedPostIds("user1", 0, 20);
 
