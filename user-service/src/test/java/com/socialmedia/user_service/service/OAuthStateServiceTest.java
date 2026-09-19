@@ -17,6 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -67,7 +68,7 @@ class OAuthStateServiceTest {
 
     @Test
     void validateAndConsume_shouldReturnNonce_whenValidState() {
-        when(valueOps.get("oauth:state:valid-state")).thenReturn("stored-nonce");
+        when(valueOps.getAndDelete("oauth:state:valid-state")).thenReturn("stored-nonce");
 
         String nonce = oauthStateService.validateAndConsume("valid-state");
 
@@ -75,17 +76,18 @@ class OAuthStateServiceTest {
     }
 
     @Test
-    void validateAndConsume_shouldDeleteKeyFromRedis_afterConsumption() {
-        when(valueOps.get("oauth:state:valid-state")).thenReturn("stored-nonce");
+    void validateAndConsume_shouldReadAndDeleteKeyAtomically() {
+        when(valueOps.getAndDelete("oauth:state:valid-state")).thenReturn("stored-nonce");
 
         oauthStateService.validateAndConsume("valid-state");
 
-        verify(redisTemplate).delete("oauth:state:valid-state");
+        verify(valueOps).getAndDelete("oauth:state:valid-state");
+        verify(redisTemplate, never()).delete(anyString());
     }
 
     @Test
     void validateAndConsume_shouldThrow_whenStateNotFound() {
-        when(valueOps.get(anyString())).thenReturn(null);
+        when(valueOps.getAndDelete(anyString())).thenReturn(null);
 
         assertThatThrownBy(() -> oauthStateService.validateAndConsume("invalid-state"))
                 .isInstanceOf(InvalidTokenException.class)

@@ -26,12 +26,10 @@ public class OAuthStateService {
     }
 
     public String validateAndConsume(String state) {
-        String key = KEY_PREFIX + state;
-        String nonce = redisTemplate.opsForValue().get(key);
+        String nonce = redisTemplate.opsForValue().getAndDelete(KEY_PREFIX + state);
         if (nonce == null) {
             throw new InvalidTokenException("Invalid or expired OAuth state");
         }
-        redisTemplate.delete(key);
         return nonce;
     }
 }
