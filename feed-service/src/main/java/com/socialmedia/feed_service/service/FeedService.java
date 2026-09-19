@@ -4,6 +4,7 @@ import com.socialmedia.feed_service.dto.PostSummary;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.http.HttpStatus;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,7 @@ public class FeedService {
     private final UserServiceClient userServiceClient;
     private final PostServiceClient postServiceClient;
     private final KafkaTemplate<String, String> kafkaTemplate;
+    private final RedisScript<Long> addPostToFeedScript;
 
     @Value("${feed.celebrity-follower-threshold:10000}")
     private long celebrityFollowerThreshold = 10_000;
@@ -111,9 +113,8 @@ public class FeedService {
     }
 
     private void addPostToFeed(String userId, String authorId, String postId, long epochMillis) {
-        redisTemplate.opsForZSet().add("feed:" + userId, postId, epochMillis);
-        redisTemplate.opsForSet().add("author_posts_in_feed:" + userId + ":" + authorId, postId);
-        redisTemplate.opsForSet().add("post_feeds:" + postId, userId);
-        redisTemplate.opsForZSet().removeRange("feed:" + userId, 0, -(FEED_MAX_SIZE + 1));
+        redisTemplate.execute(addPostToFeedScript,
+                List.of("feed:" + userId, "author_posts_in_feed:" + userId + ":" + authorId, "post_feeds:" + postId),
+                postId, String.valueOf(epochMillis), userId, String.valueOf(FEED_MAX_SIZE));
     }
 }

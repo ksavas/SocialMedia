@@ -14,6 +14,7 @@ import org.springframework.data.redis.core.DefaultTypedTuple;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.SetOperations;
 import org.springframework.data.redis.core.ZSetOperations;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
@@ -44,6 +45,8 @@ class FeedServiceTest {
     private PostServiceClient postServiceClient;
     @Mock
     private KafkaTemplate<String, String> kafkaTemplate;
+    @Mock
+    private RedisScript<Long> addPostToFeedScript;
 
     @InjectMocks
     private FeedService feedService;
@@ -62,8 +65,8 @@ class FeedServiceTest {
 
         feedService.handlePostCreated("normal", "author1", 1000L);
 
-        verify(zSetOps).add("feed:f1", "normal", 1000.0);
-        verify(zSetOps).add("feed:f2", "normal", 1000.0);
+        verifyAddedToFeed("f1", "author1", "normal", 1000L);
+        verifyAddedToFeed("f2", "author1", "normal", 1000L);
         verify(postServiceClient, never()).markForPull(anyString());
     }
 
@@ -153,6 +156,7 @@ class FeedServiceTest {
         verify(postServiceClient).markForPull("p1");
         verify(userServiceClient, never()).getFollowerIds(anyString());
         verifyNoInteractions(zSetOps, setOps, kafkaTemplate);
+        verify(redisTemplate, never()).execute(eq(addPostToFeedScript), anyList(), any(Object[].class));
     }
 
     @Test
@@ -161,12 +165,8 @@ class FeedServiceTest {
 
         feedService.handlePostCreated("p1", "author1", 1000L);
 
-        verify(zSetOps).add("feed:f1", "p1", 1000.0);
-        verify(zSetOps).add("feed:f2", "p1", 1000.0);
-        verify(setOps).add("author_posts_in_feed:f1:author1", "p1");
-        verify(setOps).add("author_posts_in_feed:f2:author1", "p1");
-        verify(setOps).add("post_feeds:p1", "f1");
-        verify(setOps).add("post_feeds:p1", "f2");
+        verifyAddedToFeed("f1", "author1", "p1", 1000L);
+        verifyAddedToFeed("f2", "author1", "p1", 1000L);
     }
 
     @Test
@@ -185,7 +185,7 @@ class FeedServiceTest {
 
         feedService.handlePostCreated("p1", "author1", 1000L);
 
-        verify(zSetOps).add(eq("feed:author1"), eq("p1"), anyDouble());
+        verifyAddedToFeed("author1", "author1", "p1", 1000L);
         verify(kafkaTemplate, never()).send(anyString(), anyString(), anyString());
     }
 
@@ -219,7 +219,7 @@ class FeedServiceTest {
 
         feedService.handleUserFollowed("follower1", "author2");
 
-        verify(zSetOps).add("feed:follower1", "p1", (double) createdAt.toEpochMilli());
+        verifyAddedToFeed("follower1", "author2", "p1", createdAt.toEpochMilli());
     }
 
     @Test
@@ -230,12 +230,8 @@ class FeedServiceTest {
 
         feedService.handleUserFollowed("follower1", "author2");
 
-        verify(zSetOps).add(eq("feed:follower1"), eq("p1"), anyDouble());
-        verify(zSetOps).add(eq("feed:follower1"), eq("p2"), anyDouble());
-        verify(setOps).add("author_posts_in_feed:follower1:author2", "p1");
-        verify(setOps).add("author_posts_in_feed:follower1:author2", "p2");
-        verify(setOps).add("post_feeds:p1", "follower1");
-        verify(setOps).add("post_feeds:p2", "follower1");
+        verifyAddedToFeed("follower1", "author2", "p1", post1.createdAt().toEpochMilli());
+        verifyAddedToFeed("follower1", "author2", "p2", post2.createdAt().toEpochMilli());
     }
 
     @Test
@@ -270,5 +266,11 @@ class FeedServiceTest {
         List<String> result = feedService.getFeedPostIds("user1", 0, 20);
 
         assertThat(result).isEmpty();
+    }
+
+    private void verifyAddedToFeed(String userId, String authorId, String postId, long epochMillis) {
+        verify(redisTemplate).execute(eq(addPostToFeedScript),
+                eq(List.of("feed:" + userId, "author_posts_in_feed:" + userId + ":" + authorId, "post_feeds:" + postId)),
+                eq(postId), eq(String.valueOf(epochMillis)), eq(userId), eq("1000"));
     }
 }
