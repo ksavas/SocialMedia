@@ -17,7 +17,7 @@ public class PostServiceClient {
     private final RestClient restClient;
 
     public PostServiceClient(@Value("${services.post-service.url}") String baseUrl) {
-        this.restClient = RestClient.builder().baseUrl(baseUrl).build();
+        this.restClient = RestClientFactory.create(baseUrl);
     }
 
     public List<PostSummary> getPullPosts(List<String> authorIds, int limit) {

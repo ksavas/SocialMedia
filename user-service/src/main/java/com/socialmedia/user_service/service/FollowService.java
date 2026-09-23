@@ -11,6 +11,7 @@ import com.socialmedia.user_service.repository.FollowRepository;
 import com.socialmedia.user_service.repository.OutboxEventRepository;
 import com.socialmedia.user_service.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,10 +45,14 @@ public class FollowService {
             throw new IllegalStateException("Already following");
         }
 
-        followRepository.save(Follow.builder()
-                .followerId(currentUser.getId())
-                .followingId(targetUserId)
-                .build());
+        try {
+            followRepository.saveAndFlush(Follow.builder()
+                    .followerId(currentUser.getId())
+                    .followingId(targetUserId)
+                    .build());
+        } catch (DataIntegrityViolationException e) {
+            throw new IllegalStateException("Already following");
+        }
 
         outboxEventRepository.save(buildOutboxEvent("user.followed", currentUser.getId(), targetUserId));
     }

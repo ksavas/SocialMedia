@@ -5,7 +5,7 @@ import lombok.*;
 import java.util.UUID;
 
 @Entity
-@Table(name = "users")
+@Table(name = "users", indexes = @Index(name = "idx_users_provider", columnList = "provider, providerId"))
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class User {
     @Id

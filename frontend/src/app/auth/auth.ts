@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface RegisterRequest {
   username: string;
@@ -41,8 +42,8 @@ export interface UserProfile {
   providedIn: 'root',
 })
 export class AuthService {
-  private readonly authUrl = 'http://localhost:8081/api/auth';
-  private readonly usersUrl = 'http://localhost:8081/api/users';
+  private readonly authUrl = `${environment.api.user}/api/auth`;
+  private readonly usersUrl = `${environment.api.user}/api/users`;
 
   constructor(private http: HttpClient) {}
 
@@ -117,8 +118,8 @@ export interface CommentResponse {
 
 @Injectable({ providedIn: 'root' })
 export class PostApiService {
-  private readonly postsUrl = 'http://localhost:8082/api/posts';
-  private readonly feedUrl = 'http://localhost:8084/api/feed';
+  private readonly postsUrl = `${environment.api.post}/api/posts`;
+  private readonly feedUrl = `${environment.api.feed}/api/feed`;
 
   constructor(private http: HttpClient) {}
 

@@ -63,7 +63,7 @@ class FollowServiceTest {
 
         followService.follow("current", targetUserId);
 
-        verify(followRepository).save(any(Follow.class));
+        verify(followRepository).saveAndFlush(any(Follow.class));
         verify(outboxEventRepository).save(argThat(e -> e.getEventType().equals("user.followed")));
     }
 

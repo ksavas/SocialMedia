@@ -1,6 +1,7 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { tap } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
 export interface NotificationItem {
   id: string;
@@ -22,7 +23,7 @@ const MAX_RECONNECT_DELAY_MS = 30000;
 @Injectable({ providedIn: 'root' })
 export class NotificationService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = 'http://localhost:8085/api/notifications';
+  private readonly baseUrl = `${environment.api.notification}/api/notifications`;
 
   readonly notifications = signal<NotificationItem[]>([]);
   readonly unreadCount = computed(() => this.notifications().filter(n => !n.read).length);

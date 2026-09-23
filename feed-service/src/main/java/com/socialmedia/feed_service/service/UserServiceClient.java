@@ -13,7 +13,7 @@ public class UserServiceClient {
     private final RestClient restClient;
 
     public UserServiceClient(@Value("${services.user-service.url}") String baseUrl) {
-        this.restClient = RestClient.builder().baseUrl(baseUrl).build();
+        this.restClient = RestClientFactory.create(baseUrl);
     }
 
     public List<String> getFollowingIds(String userId) {

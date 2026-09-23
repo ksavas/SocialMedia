@@ -20,23 +20,6 @@ CREATE TABLE IF NOT EXISTS follows (
 );
 
 
-CREATE TABLE IF NOT EXISTS likes (
-    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id    UUID NOT NULL,
-    post_id    VARCHAR(100) NOT NULL,
-    created_at TIMESTAMP DEFAULT NOW(),
-    UNIQUE (user_id, post_id)
-);
-
-CREATE TABLE IF NOT EXISTS comments (
-    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id    UUID NOT NULL,
-    post_id    VARCHAR(100) NOT NULL,
-    content    TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
-);
-
 CREATE TABLE IF NOT EXISTS outbox_events (
     id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     aggregate_type VARCHAR(50) NOT NULL,
@@ -60,7 +43,7 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 );
 
 CREATE INDEX idx_outbox_status ON outbox_events(status);
+CREATE INDEX idx_users_provider ON users(provider, provider_id);
 CREATE INDEX idx_refresh_tokens_family_id ON refresh_tokens(family_id);
 CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
-CREATE INDEX idx_follows_follower ON follows(follower_id);
 CREATE INDEX idx_follows_following ON follows(following_id);

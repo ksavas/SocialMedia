@@ -4,6 +4,7 @@ import com.socialmedia.notification_service.dto.NotificationResponse;
 import com.socialmedia.notification_service.entity.Notification;
 import com.socialmedia.notification_service.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
@@ -12,14 +13,18 @@ import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.util.concurrent.Queues;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class NotificationService {
+
+    private static final Duration HEARTBEAT_INTERVAL = Duration.ofSeconds(25);
 
     private final NotificationRepository repository;
     private final Map<String, Sinks.Many<NotificationResponse>> userSinks = new ConcurrentHashMap<>();
@@ -57,8 +62,11 @@ public class NotificationService {
                 userId,
                 id -> Sinks.many().multicast().onBackpressureBuffer(Queues.SMALL_BUFFER_SIZE, false)
         );
-        return sink.asFlux()
-                .map(n -> ServerSentEvent.builder(n).build())
+        Flux<ServerSentEvent<NotificationResponse>> notifications = sink.asFlux()
+                .map(n -> ServerSentEvent.builder(n).build());
+        Flux<ServerSentEvent<NotificationResponse>> heartbeats = Flux.interval(HEARTBEAT_INTERVAL)
+                .map(tick -> ServerSentEvent.<NotificationResponse>builder().comment("heartbeat").build());
+        return Flux.merge(notifications, heartbeats)
                 .doFinally(signal -> userSinks.computeIfPresent(
                         userId,
                         (id, current) -> current.currentSubscriberCount() == 0 ? null : current
@@ -68,7 +76,10 @@ public class NotificationService {
     public void pushNotification(String userId, NotificationResponse notification) {
         Sinks.Many<NotificationResponse> sink = userSinks.get(userId);
         if (sink != null) {
-            sink.tryEmitNext(notification);
+            Sinks.EmitResult result = sink.tryEmitNext(notification);
+            if (result.isFailure()) {
+                log.warn("Could not push notification to user {}: {}", userId, result);
+            }
         }
     }
 

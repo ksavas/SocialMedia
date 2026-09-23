@@ -23,9 +23,22 @@ if (googleClientId === 'not-configured') {
   console.warn('  GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com');
 }
 
+const api = {
+  user: process.env.USER_API_URL || 'http://localhost:8081',
+  post: process.env.POST_API_URL || 'http://localhost:8082',
+  feed: process.env.FEED_API_URL || 'http://localhost:8084',
+  notification: process.env.NOTIFICATION_API_URL || 'http://localhost:8085',
+};
+
 const content = `export const environment = {
   production: false,
   googleClientId: '${googleClientId}',
+  api: {
+    user: '${api.user}',
+    post: '${api.post}',
+    feed: '${api.feed}',
+    notification: '${api.notification}',
+  },
 };\n`;
 
 const outputDir = path.join(__dirname, 'src', 'environments');
