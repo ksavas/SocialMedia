@@ -5,11 +5,15 @@ import com.socialmedia.user_service.dto.AuthResponse;
 import com.socialmedia.user_service.dto.UpdateProfileRequest;
 import com.socialmedia.user_service.exception.EmailAlreadyRegisteredException;
 import com.socialmedia.user_service.exception.UserAlreadyExistsException;
+import com.socialmedia.user_service.security.RefreshTokenCookies;
+import com.socialmedia.user_service.security.SecurityConfig;
+import com.socialmedia.user_service.service.FollowService;
+import com.socialmedia.user_service.service.JwtService;
 import com.socialmedia.user_service.service.UserService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -22,8 +26,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
-@AutoConfigureMockMvc
+@WebMvcTest(UserController.class)
+@Import({SecurityConfig.class, JwtService.class, RefreshTokenCookies.class})
 class UserControllerTest {
 
     @Autowired
@@ -33,6 +37,9 @@ class UserControllerTest {
 
     @MockitoBean
     private UserService userService;
+
+    @MockitoBean
+    private FollowService followService;
 
     @Test
     void updateProfile_shouldReturn200AndNewToken_whenValidRequest() throws Exception {

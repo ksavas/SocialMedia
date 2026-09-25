@@ -10,13 +10,16 @@ import com.socialmedia.user_service.entity.Provider;
 import com.socialmedia.user_service.exception.InvalidCredentialsException;
 import com.socialmedia.user_service.exception.InvalidRefreshTokenException;
 import com.socialmedia.user_service.exception.UserAlreadyExistsException;
+import com.socialmedia.user_service.security.RefreshTokenCookies;
+import com.socialmedia.user_service.security.SecurityConfig;
 import com.socialmedia.user_service.service.AuthService;
+import com.socialmedia.user_service.service.JwtService;
 import com.socialmedia.user_service.service.OAuthStateService;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -31,8 +34,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
-@AutoConfigureMockMvc
+@WebMvcTest(AuthController.class)
+@Import({SecurityConfig.class, JwtService.class, RefreshTokenCookies.class})
 class AuthControllerTest {
 
     @Autowired
