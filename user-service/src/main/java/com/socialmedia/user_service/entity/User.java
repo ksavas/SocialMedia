@@ -29,4 +29,8 @@ public class User {
     private Provider provider = Provider.LOCAL;
 
     private String providerId;
+
+    @Column(nullable = false, columnDefinition = "bigint default 0")
+    @Builder.Default
+    private long followerCount = 0;
 }

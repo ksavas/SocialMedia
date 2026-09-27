@@ -11,8 +11,7 @@ import java.util.UUID;
 
 public interface FollowRepository extends JpaRepository<Follow, FollowId> {
     boolean existsByFollowerIdAndFollowingId(UUID followerId, UUID followingId);
-    void deleteByFollowerIdAndFollowingId(UUID followerId, UUID followingId);
-    long countByFollowingId(UUID followingId);
+    long deleteByFollowerIdAndFollowingId(UUID followerId, UUID followingId);
     long countByFollowerId(UUID followerId);
 
     @Query("SELECT f.followerId FROM Follow f WHERE f.followingId = :followingId")

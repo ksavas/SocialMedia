@@ -54,18 +54,18 @@ public class FollowService {
             throw new IllegalStateException("Already following");
         }
 
+        userRepository.incrementFollowerCount(targetUserId);
         outboxEventRepository.save(buildOutboxEvent("user.followed", currentUser.getId(), targetUserId));
     }
 
     public void unfollow(String currentUsername, UUID targetUserId) {
         User currentUser = findByUsername(currentUsername);
 
-        if (!followRepository.existsByFollowerIdAndFollowingId(currentUser.getId(), targetUserId)) {
+        if (followRepository.deleteByFollowerIdAndFollowingId(currentUser.getId(), targetUserId) == 0) {
             throw new IllegalStateException("Not following");
         }
 
-        followRepository.deleteByFollowerIdAndFollowingId(currentUser.getId(), targetUserId);
-
+        userRepository.decrementFollowerCount(targetUserId);
         outboxEventRepository.save(buildOutboxEvent("user.unfollowed", currentUser.getId(), targetUserId));
     }
 
@@ -79,7 +79,7 @@ public class FollowService {
                 target.getId(),
                 target.getUsername(),
                 target.getDisplayName(),
-                followRepository.countByFollowingId(targetUserId),
+                target.getFollowerCount(),
                 followRepository.countByFollowerId(targetUserId),
                 followRepository.existsByFollowerIdAndFollowingId(currentUser.getId(), targetUserId)
         );
@@ -103,7 +103,7 @@ public class FollowService {
 
     @Transactional(readOnly = true)
     public long getFollowerCount(UUID userId) {
-        return followRepository.countByFollowingId(userId);
+        return userRepository.findFollowerCountById(userId).orElse(0L);
     }
 
     @Transactional(readOnly = true)

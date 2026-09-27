@@ -47,12 +47,19 @@ class FollowServiceTest {
 
     @Test
     void exposesFollowerCountAndCurrentFollowingIdsForHybridFeed() {
-        when(followRepository.countByFollowingId(targetUserId)).thenReturn(10000L);
+        when(userRepository.findFollowerCountById(targetUserId)).thenReturn(Optional.of(10000L));
         when(followRepository.findFollowingIdsByFollowerId(currentUserId)).thenReturn(List.of(targetUserId));
 
         assertThat(followService.getFollowerCount(targetUserId)).isEqualTo(10000L);
         assertThat(followService.getFollowingIds(currentUserId)).containsExactly(targetUserId.toString());
         verify(followRepository, never()).findFollowerIdsByFollowingId(any());
+    }
+
+    @Test
+    void getFollowerCount_returnsZero_whenUserDoesNotExist() {
+        when(userRepository.findFollowerCountById(targetUserId)).thenReturn(Optional.empty());
+
+        assertThat(followService.getFollowerCount(targetUserId)).isZero();
     }
 
     @Test
@@ -65,6 +72,7 @@ class FollowServiceTest {
 
         verify(followRepository).saveAndFlush(any(Follow.class));
         verify(outboxEventRepository).save(argThat(e -> e.getEventType().equals("user.followed")));
+        verify(userRepository).incrementFollowerCount(targetUserId);
     }
 
     @Test
@@ -76,6 +84,7 @@ class FollowServiceTest {
         assertThatThrownBy(() -> followService.follow("current", targetUserId))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Already following");
+        verify(userRepository, never()).incrementFollowerCount(any());
     }
 
     @Test
@@ -90,29 +99,31 @@ class FollowServiceTest {
     @Test
     void unfollow_shouldDeleteFollowAndSaveOutboxEvent() {
         when(userRepository.findByUsername("current")).thenReturn(Optional.of(currentUser));
-        when(followRepository.existsByFollowerIdAndFollowingId(currentUserId, targetUserId)).thenReturn(true);
+        when(followRepository.deleteByFollowerIdAndFollowingId(currentUserId, targetUserId)).thenReturn(1L);
 
         followService.unfollow("current", targetUserId);
 
-        verify(followRepository).deleteByFollowerIdAndFollowingId(currentUserId, targetUserId);
         verify(outboxEventRepository).save(argThat(e -> e.getEventType().equals("user.unfollowed")));
+        verify(userRepository).decrementFollowerCount(targetUserId);
     }
 
     @Test
     void unfollow_shouldThrow_whenNotFollowing() {
         when(userRepository.findByUsername("current")).thenReturn(Optional.of(currentUser));
-        when(followRepository.existsByFollowerIdAndFollowingId(currentUserId, targetUserId)).thenReturn(false);
+        when(followRepository.deleteByFollowerIdAndFollowingId(currentUserId, targetUserId)).thenReturn(0L);
 
         assertThatThrownBy(() -> followService.unfollow("current", targetUserId))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Not following");
+        verify(userRepository, never()).decrementFollowerCount(any());
+        verify(outboxEventRepository, never()).save(any());
     }
 
     @Test
     void getProfile_shouldReturnProfileWithCountsAndFollowingFlag() {
         when(userRepository.findByUsername("current")).thenReturn(Optional.of(currentUser));
+        targetUser.setFollowerCount(42L);
         when(userRepository.findById(targetUserId)).thenReturn(Optional.of(targetUser));
-        when(followRepository.countByFollowingId(targetUserId)).thenReturn(42L);
         when(followRepository.countByFollowerId(targetUserId)).thenReturn(10L);
         when(followRepository.existsByFollowerIdAndFollowingId(currentUserId, targetUserId)).thenReturn(true);
 

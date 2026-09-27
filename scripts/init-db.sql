@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
     avatar_url   VARCHAR(500),
     provider     VARCHAR(255) NOT NULL DEFAULT 'LOCAL' CHECK (provider IN ('LOCAL','GOOGLE','MICROSOFT')),
     provider_id  VARCHAR(255),
+    follower_count BIGINT NOT NULL DEFAULT 0,
     created_at   TIMESTAMP DEFAULT NOW(),
     updated_at   TIMESTAMP DEFAULT NOW()
 );
