@@ -13,6 +13,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Optional;
@@ -142,13 +145,22 @@ class FollowServiceTest {
         User other = User.builder().id(otherId).username("other").email("o@o.com").password("p").build();
 
         when(userRepository.findByUsername("current")).thenReturn(Optional.of(currentUser));
-        when(userRepository.findAll()).thenReturn(List.of(currentUser, other, targetUser));
+        when(userRepository.findByIdNot(currentUserId, PageRequest.of(1, 2, Sort.by("username"))))
+                .thenReturn(List.of(other, targetUser));
         when(followRepository.findFollowingIdsByFollowerId(currentUserId)).thenReturn(List.of(targetUserId));
 
-        List<UserSummary> users = followService.getUsers("current");
+        List<UserSummary> users = followService.getUsers("current", 1, 2);
 
         assertThat(users).extracting(UserSummary::username).containsExactly("other", "target");
         assertThat(users).extracting(UserSummary::isFollowing).containsExactly(false, true);
         verify(followRepository, never()).existsByFollowerIdAndFollowingId(any(), any());
+    }
+
+    @Test
+    void getUsers_rejectsInvalidPagination() {
+        assertThatThrownBy(() -> followService.getUsers("current", -1, 20)).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> followService.getUsers("current", 0, 0)).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> followService.getUsers("current", 0, 101)).isInstanceOf(ResponseStatusException.class);
+        verifyNoInteractions(userRepository);
     }
 }

@@ -14,6 +14,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.Optional;
@@ -46,6 +47,28 @@ class NotificationControllerTest {
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody().jsonPath("$.ticket").isEqualTo("ticket-abc");
+    }
+
+    @Test
+    void getNotifications_shouldPassPageAndSize() {
+        when(notificationService.getNotifications("user-1", 1, 5)).thenReturn(Flux.empty());
+
+        webTestClient.mutateWith(mockAuthentication(authenticated("user-1")))
+                .get().uri("/api/notifications?page=1&size=5")
+                .exchange()
+                .expectStatus().isOk();
+        verify(notificationService).getNotifications("user-1", 1, 5);
+    }
+
+    @Test
+    void unreadCount_shouldReturnCountForAuthenticatedUser() {
+        when(notificationService.countUnread("user-1")).thenReturn(Mono.just(3L));
+
+        webTestClient.mutateWith(mockAuthentication(authenticated("user-1")))
+                .get().uri("/api/notifications/unread-count")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody().jsonPath("$.count").isEqualTo(3);
     }
 
     @Test

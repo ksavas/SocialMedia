@@ -12,8 +12,12 @@ import com.socialmedia.user_service.repository.OutboxEventRepository;
 import com.socialmedia.user_service.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashSet;
 import java.util.List;
@@ -25,6 +29,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Transactional
 public class FollowService {
+
+    private static final int MAX_PAGE_SIZE = 100;
 
     private final FollowRepository followRepository;
     private final UserRepository userRepository;
@@ -86,12 +92,14 @@ public class FollowService {
     }
 
     @Transactional(readOnly = true)
-    public List<UserSummary> getUsers(String currentUsername) {
+    public List<UserSummary> getUsers(String currentUsername, int page, int size) {
+        if (page < 0 || size < 1 || size > MAX_PAGE_SIZE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid page or size");
+        }
         User currentUser = findByUsername(currentUsername);
         Set<UUID> followingIds = new HashSet<>(followRepository.findFollowingIdsByFollowerId(currentUser.getId()));
 
-        return userRepository.findAll().stream()
-                .filter(u -> !u.getId().equals(currentUser.getId()))
+        return userRepository.findByIdNot(currentUser.getId(), PageRequest.of(page, size, Sort.by("username"))).stream()
                 .map(u -> new UserSummary(
                         u.getId(),
                         u.getUsername(),

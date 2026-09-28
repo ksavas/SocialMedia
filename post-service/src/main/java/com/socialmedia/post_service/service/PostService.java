@@ -35,6 +35,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PostService {
 
+    private static final int MAX_COMMENT_PAGE_SIZE = 100;
+
     private final PostRepository postRepository;
     private final LikeRepository likeRepository;
     private final CommentRepository commentRepository;
@@ -174,8 +176,11 @@ public class PostService {
                 .toList();
     }
 
-    public List<CommentResponse> getComments(String postId) {
-        return commentRepository.findByPostIdOrderByCreatedAtAsc(postId)
+    public List<CommentResponse> getComments(String postId, int page, int size) {
+        if (page < 0 || size < 1 || size > MAX_COMMENT_PAGE_SIZE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid page or size");
+        }
+        return commentRepository.findByPostIdOrderByCreatedAtAsc(postId, PageRequest.of(page, size))
                 .stream()
                 .map(this::toCommentResponse)
                 .toList();

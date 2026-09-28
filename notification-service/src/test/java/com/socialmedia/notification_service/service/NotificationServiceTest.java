@@ -8,6 +8,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.dao.DuplicateKeyException;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
@@ -23,6 +25,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -113,14 +116,31 @@ class NotificationServiceTest {
     @Test
     void getNotifications_returnsMappedResponses() {
         Notification n = notification("user1", "FOLLOWED", "user2", null);
-        when(repository.findByRecipientIdOrderByCreatedAtDesc("user1")).thenReturn(Flux.just(n));
+        when(repository.findByRecipientIdOrderByCreatedAtDesc("user1", PageRequest.of(2, 10))).thenReturn(Flux.just(n));
 
-        StepVerifier.create(service.getNotifications("user1"))
+        StepVerifier.create(service.getNotifications("user1", 2, 10))
                 .expectNextMatches(r ->
                         "FOLLOWED".equals(r.type()) &&
                         "user2".equals(r.actorId()) &&
                         "user1".equals(r.recipientId())
                 )
+                .verifyComplete();
+    }
+
+    @Test
+    void getNotifications_rejectsInvalidPagination() {
+        StepVerifier.create(service.getNotifications("user1", 0, 101))
+                .expectError(ResponseStatusException.class)
+                .verify();
+        verify(repository, never()).findByRecipientIdOrderByCreatedAtDesc(anyString(), any());
+    }
+
+    @Test
+    void countUnread_delegatesToRepository() {
+        when(repository.countByRecipientIdAndReadFalse("user1")).thenReturn(Mono.just(7L));
+
+        StepVerifier.create(service.countUnread("user1"))
+                .expectNext(7L)
                 .verifyComplete();
     }
 

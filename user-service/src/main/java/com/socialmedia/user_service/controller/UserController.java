@@ -28,8 +28,10 @@ public class UserController {
     }
 
     @GetMapping
-    public List<UserSummary> getUsers(Principal principal) {
-        return followService.getUsers(principal.getName());
+    public List<UserSummary> getUsers(Principal principal,
+                                      @RequestParam(defaultValue = "0") int page,
+                                      @RequestParam(defaultValue = "20") int size) {
+        return followService.getUsers(principal.getName(), page, size);
     }
 
     @GetMapping("/{id}")

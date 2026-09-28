@@ -69,7 +69,9 @@ public class PostController {
     }
 
     @GetMapping("/{id}/comments")
-    public List<CommentResponse> getComments(@PathVariable String id) {
-        return postService.getComments(id);
+    public List<CommentResponse> getComments(@PathVariable String id,
+                                             @RequestParam(defaultValue = "0") int page,
+                                             @RequestParam(defaultValue = "20") int size) {
+        return postService.getComments(id, page, size);
     }
 }

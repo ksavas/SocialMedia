@@ -20,6 +20,7 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -38,13 +39,24 @@ class UserControllerFollowTest {
     @Test
     void getUsers_shouldReturn200WithList_whenAuthenticated() throws Exception {
         UUID id = UUID.randomUUID();
-        when(followService.getUsers("testuser"))
+        when(followService.getUsers("testuser", 0, 20))
                 .thenReturn(List.of(new UserSummary(id, "alice", "Alice", false)));
 
         mockMvc.perform(get("/api/users").with(user("testuser")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].username").value("alice"))
                 .andExpect(jsonPath("$[0].isFollowing").value(false));
+    }
+
+    @Test
+    void getUsers_shouldPassPageAndSize() throws Exception {
+        when(followService.getUsers("testuser", 2, 5)).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/users").param("page", "2").param("size", "5").with(user("testuser")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isEmpty());
+
+        verify(followService).getUsers("testuser", 2, 5);
     }
 
     @Test

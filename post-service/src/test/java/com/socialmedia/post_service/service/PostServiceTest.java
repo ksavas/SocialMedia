@@ -20,6 +20,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.List;
@@ -206,12 +207,19 @@ class PostServiceTest {
     void getComments_shouldReturnCommentsForPost() {
         Comment c = Comment.builder().id("c1").postId("p1").authorId("u1")
                 .content("Hey").createdAt(Instant.now()).build();
-        when(commentRepository.findByPostIdOrderByCreatedAtAsc("p1")).thenReturn(List.of(c));
+        when(commentRepository.findByPostIdOrderByCreatedAtAsc("p1", PageRequest.of(1, 10))).thenReturn(List.of(c));
 
-        List<CommentResponse> result = postService.getComments("p1");
+        List<CommentResponse> result = postService.getComments("p1", 1, 10);
 
         assertThat(result).hasSize(1);
         assertThat(result.getFirst().content()).isEqualTo("Hey");
+    }
+
+    @Test
+    void getComments_rejectsInvalidPagination() {
+        assertThatThrownBy(() -> postService.getComments("p1", -1, 20)).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> postService.getComments("p1", 0, 101)).isInstanceOf(ResponseStatusException.class);
+        verifyNoInteractions(commentRepository);
     }
 
     @Test

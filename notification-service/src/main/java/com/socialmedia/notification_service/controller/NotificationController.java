@@ -2,6 +2,7 @@ package com.socialmedia.notification_service.controller;
 
 import com.socialmedia.notification_service.dto.NotificationResponse;
 import com.socialmedia.notification_service.dto.StreamTicketResponse;
+import com.socialmedia.notification_service.dto.UnreadCountResponse;
 import com.socialmedia.notification_service.security.StreamTicketService;
 import com.socialmedia.notification_service.security.UserPrincipal;
 import com.socialmedia.notification_service.service.NotificationService;
@@ -45,9 +46,17 @@ public class NotificationController {
     }
 
     @GetMapping
-    public Flux<NotificationResponse> getNotifications(Authentication authentication) {
+    public Flux<NotificationResponse> getNotifications(Authentication authentication,
+                                                      @RequestParam(defaultValue = "0") int page,
+                                                      @RequestParam(defaultValue = "20") int size) {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
-        return notificationService.getNotifications(principal.userId());
+        return notificationService.getNotifications(principal.userId(), page, size);
+    }
+
+    @GetMapping("/unread-count")
+    public Mono<UnreadCountResponse> unreadCount(Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        return notificationService.countUnread(principal.userId()).map(UnreadCountResponse::new);
     }
 
     @PutMapping("/{id}/read")

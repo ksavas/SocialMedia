@@ -6,8 +6,11 @@ import com.socialmedia.notification_service.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
@@ -25,6 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class NotificationService {
 
     private static final Duration HEARTBEAT_INTERVAL = Duration.ofSeconds(25);
+    private static final int MAX_PAGE_SIZE = 100;
 
     private final NotificationRepository repository;
     private final Map<String, Sinks.Many<NotificationResponse>> userSinks = new ConcurrentHashMap<>();
@@ -48,9 +52,16 @@ public class NotificationService {
         pushNotification(userId, notification);
     }
 
-    public Flux<NotificationResponse> getNotifications(String userId) {
-        return repository.findByRecipientIdOrderByCreatedAtDesc(userId)
+    public Flux<NotificationResponse> getNotifications(String userId, int page, int size) {
+        if (page < 0 || size < 1 || size > MAX_PAGE_SIZE) {
+            return Flux.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid page or size"));
+        }
+        return repository.findByRecipientIdOrderByCreatedAtDesc(userId, PageRequest.of(page, size))
                 .map(this::toResponse);
+    }
+
+    public Mono<Long> countUnread(String userId) {
+        return repository.countByRecipientIdAndReadFalse(userId);
     }
 
     public Mono<Void> markAsRead(UUID id, String userId) {
