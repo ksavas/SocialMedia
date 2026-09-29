@@ -1,4 +1,4 @@
-import { Injectable, signal, computed, inject } from '@angular/core';
+import { Injectable, signal, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -17,6 +17,10 @@ interface StreamTicket {
   ticket: string;
 }
 
+interface UnreadCount {
+  count: number;
+}
+
 const INITIAL_RECONNECT_DELAY_MS = 1000;
 const MAX_RECONNECT_DELAY_MS = 30000;
 
@@ -26,7 +30,7 @@ export class NotificationService {
   private readonly baseUrl = `${environment.api.notification}/api/notifications`;
 
   readonly notifications = signal<NotificationItem[]>([]);
-  readonly unreadCount = computed(() => this.notifications().filter(n => !n.read).length);
+  readonly unreadCount = signal<number>(0);
   readonly newPostCount = signal<number>(0);
 
   private eventSource?: EventSource;
@@ -46,6 +50,7 @@ export class NotificationService {
     this.closeStream();
     this.reconnectDelayMs = INITIAL_RECONNECT_DELAY_MS;
     this.notifications.set([]);
+    this.unreadCount.set(0);
     this.newPostCount.set(0);
   }
 
@@ -85,6 +90,9 @@ export class NotificationService {
     this.http.get<NotificationItem[]>(this.baseUrl).subscribe({
       next: (list) => this.notifications.set(list),
     });
+    this.http.get<UnreadCount>(`${this.baseUrl}/unread-count`).subscribe({
+      next: ({ count }) => this.unreadCount.set(count),
+    });
   }
 
   private handleMessage(notification: NotificationItem): void {
@@ -92,6 +100,7 @@ export class NotificationService {
       this.newPostCount.update((n) => n + 1);
     } else {
       this.notifications.update((list) => [notification, ...list]);
+      if (!notification.read) this.unreadCount.update((n) => n + 1);
     }
   }
 
@@ -100,10 +109,14 @@ export class NotificationService {
   }
 
   markAsRead(id: string): void {
+    const wasUnread = this.notifications().some((n) => n.id === id && !n.read);
     this.http.put<void>(`${this.baseUrl}/${id}/read`, null).pipe(
-      tap(() => this.notifications.update((list) =>
-        list.map((n) => (n.id === id ? { ...n, read: true } : n))
-      ))
+      tap(() => {
+        this.notifications.update((list) =>
+          list.map((n) => (n.id === id ? { ...n, read: true } : n))
+        );
+        if (wasUnread) this.unreadCount.update((n) => Math.max(0, n - 1));
+      })
     ).subscribe();
   }
 

@@ -79,8 +79,8 @@ export class AuthService {
     return this.http.patch<AuthResponse>(`${this.usersUrl}/me`, request);
   }
 
-  getUsers(): Observable<UserSummary[]> {
-    return this.http.get<UserSummary[]>(this.usersUrl);
+  getUsers(page = 0, size = 20): Observable<UserSummary[]> {
+    return this.http.get<UserSummary[]>(this.usersUrl, { params: { page, size } });
   }
 
   getProfile(id: string): Observable<UserProfile> {

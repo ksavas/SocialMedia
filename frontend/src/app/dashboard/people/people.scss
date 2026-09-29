@@ -93,3 +93,20 @@
     opacity: 0.75;
   }
 }
+
+.load-more-btn {
+  display: block;
+  margin: 1.5rem auto 0;
+  padding: 0.5rem 1.5rem;
+  border-radius: 20px;
+  border: 1px solid #2c2c2c;
+  background: transparent;
+  color: #2c2c2c;
+  font-size: 0.85rem;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+}
