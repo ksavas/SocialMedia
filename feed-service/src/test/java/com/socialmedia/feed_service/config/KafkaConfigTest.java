@@ -1,5 +1,7 @@
 package com.socialmedia.feed_service.config;
 
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.Test;
@@ -7,11 +9,15 @@ import org.springframework.kafka.listener.ConsumerRecordRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.listener.ListenerExecutionFailedException;
 import org.springframework.kafka.listener.MessageListenerContainer;
+import org.springframework.util.backoff.BackOff;
+import org.springframework.util.backoff.FixedBackOff;
+import org.springframework.web.client.ResourceAccessException;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -41,6 +47,32 @@ class KafkaConfigTest {
                 .hasMessageContaining("Record in retry and not yet recovered");
 
         verify(recoverer, never()).accept(any(), any());
+    }
+
+    @Test
+    void unreachableDownstreamService_isRetriedWithoutLimitInsteadOfGoingToDlq() {
+        Exception failure = new ListenerExecutionFailedException("listener failed",
+                new ResourceAccessException("connection refused"));
+
+        BackOff backOff = KafkaConfig.retryWithoutLimitBackOff(failure);
+
+        assertThat(backOff).isInstanceOf(FixedBackOff.class);
+        assertThat(((FixedBackOff) backOff).getMaxAttempts()).isEqualTo(FixedBackOff.UNLIMITED_ATTEMPTS);
+    }
+
+    @Test
+    void openCircuit_isRetriedWithoutLimitInsteadOfGoingToDlq() {
+        Exception failure = new ListenerExecutionFailedException("listener failed",
+                CallNotPermittedException.createCallNotPermittedException(CircuitBreaker.ofDefaults("user-service")));
+
+        assertThat(KafkaConfig.retryWithoutLimitBackOff(failure)).isInstanceOf(FixedBackOff.class);
+    }
+
+    @Test
+    void otherFailures_useDefaultBackOff() {
+        Exception failure = new ListenerExecutionFailedException("listener failed", new IllegalStateException("bug"));
+
+        assertThat(KafkaConfig.retryWithoutLimitBackOff(failure)).isNull();
     }
 
     private JacksonException malformedJsonException() {

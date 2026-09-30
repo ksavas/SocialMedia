@@ -4,12 +4,17 @@ import com.socialmedia.feed_service.dto.PostDto;
 import com.socialmedia.feed_service.security.UserPrincipal;
 import com.socialmedia.feed_service.service.FeedService;
 import com.socialmedia.feed_service.service.PostServiceClient;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -29,6 +34,10 @@ public class FeedController {
         if (postIds.isEmpty()) {
             return List.of();
         }
-        return postServiceClient.getPostsByIds(postIds, principal.userId());
+        try {
+            return postServiceClient.getPostsByIds(postIds, principal.userId());
+        } catch (ResourceAccessException | HttpServerErrorException | CallNotPermittedException e) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Post service unavailable", e);
+        }
     }
 }

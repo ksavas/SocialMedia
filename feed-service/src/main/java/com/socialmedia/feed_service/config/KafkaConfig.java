@@ -1,5 +1,6 @@
 package com.socialmedia.feed_service.config;
 
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -9,11 +10,16 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.ConsumerRecordRecoverer;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.util.backoff.BackOff;
 import org.springframework.util.backoff.ExponentialBackOff;
+import org.springframework.util.backoff.FixedBackOff;
+import org.springframework.web.client.ResourceAccessException;
 import tools.jackson.core.JacksonException;
 
 @Configuration
 public class KafkaConfig {
+
+    private static final long RETRY_WITHOUT_LIMIT_INTERVAL_MS = 5_000L;
 
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory(
@@ -49,6 +55,17 @@ public class KafkaConfig {
 
         DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, backOff);
         errorHandler.addNotRetryableExceptions(JacksonException.class);
+        errorHandler.setBackOffFunction((record, failure) -> retryWithoutLimitBackOff(failure));
         return errorHandler;
+    }
+
+    static BackOff retryWithoutLimitBackOff(Exception failure) {
+        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            if (cause instanceof ResourceAccessException
+                    || cause instanceof CallNotPermittedException) {
+                return new FixedBackOff(RETRY_WITHOUT_LIMIT_INTERVAL_MS, FixedBackOff.UNLIMITED_ATTEMPTS);
+            }
+        }
+        return null;
     }
 }

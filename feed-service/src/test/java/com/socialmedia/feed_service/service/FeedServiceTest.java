@@ -2,6 +2,8 @@ package com.socialmedia.feed_service.service;
 
 import com.socialmedia.feed_service.dto.PostSummary;
 import com.socialmedia.feed_service.dto.PostDto;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,7 +18,10 @@ import org.springframework.data.redis.core.SetOperations;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
@@ -266,6 +271,46 @@ class FeedServiceTest {
         List<String> result = feedService.getFeedPostIds("user1", 0, 20);
 
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    void getFeedPostIds_fallsBackToPushFeed_whenUserServiceIsUnreachable() {
+        when(zSetOps.reverseRangeWithScores("feed:reader", 0, 999)).thenReturn(new LinkedHashSet<>(List.of(
+                new DefaultTypedTuple<>("p2", 2000.0),
+                new DefaultTypedTuple<>("p1", 1000.0))));
+        when(userServiceClient.getFollowingIds("reader")).thenThrow(new ResourceAccessException("connection refused"));
+
+        assertThat(feedService.getFeedPostIds("reader", 0, 20)).containsExactly("p2", "p1");
+        verify(postServiceClient, never()).getPullPosts(anyList(), anyInt());
+    }
+
+    @Test
+    void getFeedPostIds_fallsBackToPushFeed_whenPostServiceFails() {
+        when(zSetOps.reverseRangeWithScores("feed:reader", 0, 999)).thenReturn(new LinkedHashSet<>(List.of(
+                new DefaultTypedTuple<>("p1", 1000.0))));
+        when(userServiceClient.getFollowingIds("reader")).thenReturn(List.of("author"));
+        when(postServiceClient.getPullPosts(anyList(), anyInt()))
+                .thenThrow(HttpServerErrorException.create(HttpStatus.INTERNAL_SERVER_ERROR, "boom", null, null, null));
+
+        assertThat(feedService.getFeedPostIds("reader", 0, 20)).containsExactly("p1");
+    }
+
+    @Test
+    void getFeedPostIds_fallsBackToPushFeed_whenCircuitIsOpen() {
+        when(zSetOps.reverseRangeWithScores("feed:reader", 0, 999)).thenReturn(new LinkedHashSet<>(List.of(
+                new DefaultTypedTuple<>("p1", 1000.0))));
+        when(userServiceClient.getFollowingIds("reader")).thenThrow(
+                CallNotPermittedException.createCallNotPermittedException(CircuitBreaker.ofDefaults("user-service")));
+
+        assertThat(feedService.getFeedPostIds("reader", 0, 20)).containsExactly("p1");
+    }
+
+    @Test
+    void getFeedPostIds_propagatesUnexpectedFailures() {
+        when(userServiceClient.getFollowingIds("reader")).thenThrow(new IllegalStateException("Missing following IDs"));
+
+        assertThatThrownBy(() -> feedService.getFeedPostIds("reader", 0, 20))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     private void verifyAddedToFeed(String userId, String authorId, String postId, long epochMillis) {

@@ -1,13 +1,17 @@
 package com.socialmedia.feed_service.service;
 
 import com.socialmedia.feed_service.dto.PostSummary;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.http.HttpStatus;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
@@ -18,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class FeedService {
@@ -97,9 +102,7 @@ public class FeedService {
                 }
             }
         }
-        Set<String> authorIds = new LinkedHashSet<>(userServiceClient.getFollowingIds(userId));
-        authorIds.add(userId);
-        for (PostSummary post : postServiceClient.getPullPosts(new ArrayList<>(authorIds), FEED_MAX_SIZE)) {
+        for (PostSummary post : pullPostsOrEmpty(userId)) {
             candidates.merge(post.id(), post.createdAt().toEpochMilli(), Math::max);
         }
         return candidates.entrySet().stream()
@@ -110,6 +113,17 @@ public class FeedService {
                 .limit(size)
                 .map(Map.Entry::getKey)
                 .toList();
+    }
+
+    private List<PostSummary> pullPostsOrEmpty(String userId) {
+        try {
+            Set<String> authorIds = new LinkedHashSet<>(userServiceClient.getFollowingIds(userId));
+            authorIds.add(userId);
+            return postServiceClient.getPullPosts(new ArrayList<>(authorIds), FEED_MAX_SIZE);
+        } catch (ResourceAccessException | HttpServerErrorException | CallNotPermittedException e) {
+            log.warn("Serving push-only feed for {}: {}", userId, e.getMessage());
+            return List.of();
+        }
     }
 
     private void addPostToFeed(String userId, String authorId, String postId, long epochMillis) {

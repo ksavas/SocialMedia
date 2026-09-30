@@ -1,6 +1,7 @@
 package com.socialmedia.feed_service.service;
 
 import com.sun.net.httpserver.HttpServer;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,7 +48,7 @@ class HybridFeedHttpContractTest {
             exchange.close();
         });
 
-        UserServiceClient client = new UserServiceClient(baseUrl);
+        UserServiceClient client = new UserServiceClient(baseUrl, CircuitBreaker.ofDefaults("user-service"));
 
         assertThat(client.getFollowerCount("author")).isEqualTo(10000);
         assertThat(client.getFollowingIds("reader")).containsExactly("author");
@@ -70,7 +71,7 @@ class HybridFeedHttpContractTest {
             exchange.getResponseBody().write(body);
             exchange.close();
         });
-        PostServiceClient client = new PostServiceClient(baseUrl);
+        PostServiceClient client = new PostServiceClient(baseUrl, CircuitBreaker.ofDefaults("post-service"));
 
         client.markForPull("p1");
         var posts = client.getPullPosts(List.of("author"), 1000);
@@ -88,7 +89,7 @@ class HybridFeedHttpContractTest {
             exchange.close();
         });
 
-        assertThatThrownBy(() -> new PostServiceClient(baseUrl).markForPull("p1"))
+        assertThatThrownBy(() -> new PostServiceClient(baseUrl, CircuitBreaker.ofDefaults("post-service")).markForPull("p1"))
                 .isInstanceOf(HttpServerErrorException.class);
     }
 }
