@@ -1,5 +1,6 @@
 package com.socialmedia.feed_service.config;
 
+import com.socialmedia.feed_service.service.EventInProgressException;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import org.apache.kafka.clients.consumer.Consumer;
@@ -64,6 +65,13 @@ class KafkaConfigTest {
     void openCircuit_isRetriedWithoutLimitInsteadOfGoingToDlq() {
         Exception failure = new ListenerExecutionFailedException("listener failed",
                 CallNotPermittedException.createCallNotPermittedException(CircuitBreaker.ofDefaults("user-service")));
+
+        assertThat(KafkaConfig.retryWithoutLimitBackOff(failure)).isInstanceOf(FixedBackOff.class);
+    }
+
+    @Test
+    void eventBeingProcessedByAnotherConsumer_isRetriedWithoutLimit() {
+        Exception failure = new ListenerExecutionFailedException("listener failed", new EventInProgressException("e1"));
 
         assertThat(KafkaConfig.retryWithoutLimitBackOff(failure)).isInstanceOf(FixedBackOff.class);
     }

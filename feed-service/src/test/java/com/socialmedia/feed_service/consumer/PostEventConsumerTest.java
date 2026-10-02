@@ -77,7 +77,7 @@ class PostEventConsumerTest {
     void listen_skipsEventThatWasAlreadyProcessed() throws Exception {
         ConsumerRecord<String, String> record = recordWithEventId("post.created",
                 "{\"postId\":\"p1\",\"authorId\":\"a1\",\"createdAt\":\"2026-06-01T10:15:30Z\"}", "e1");
-        when(processedEventStore.isProcessed("e1")).thenReturn(true);
+        when(processedEventStore.tryStart("e1")).thenReturn(false);
 
         consumer.listen(record);
 
@@ -89,7 +89,7 @@ class PostEventConsumerTest {
     void listen_marksEventProcessedAfterSuccessfulHandling() throws Exception {
         ConsumerRecord<String, String> record = recordWithEventId("post.deleted",
                 "{\"postId\":\"p1\",\"authorId\":\"a1\"}", "e2");
-        when(processedEventStore.isProcessed("e2")).thenReturn(false);
+        when(processedEventStore.tryStart("e2")).thenReturn(true);
 
         consumer.listen(record);
 
@@ -101,12 +101,13 @@ class PostEventConsumerTest {
     void listen_doesNotMarkEventProcessed_whenHandlingFails() {
         ConsumerRecord<String, String> record = recordWithEventId("post.deleted",
                 "{\"postId\":\"p1\",\"authorId\":\"a1\"}", "e3");
-        when(processedEventStore.isProcessed("e3")).thenReturn(false);
+        when(processedEventStore.tryStart("e3")).thenReturn(true);
         doThrow(new IllegalStateException("redis down")).when(feedService).handlePostDeleted("p1", "a1");
 
         assertThrows(IllegalStateException.class, () -> consumer.listen(record));
 
         verify(processedEventStore, never()).markProcessed(anyString());
+        verify(processedEventStore).release("e3");
     }
 
     private ConsumerRecord<String, String> recordWithEventId(String topic, String payload, String eventId) {

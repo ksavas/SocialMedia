@@ -62,7 +62,7 @@ class UserEventConsumerTest {
         ConsumerRecord<String, String> record = new ConsumerRecord<>("user.followed", 0, 0L, "key",
                 "{\"followerId\":\"f1\",\"followingId\":\"f2\"}");
         record.headers().add(EventHeaders.EVENT_ID, "e1".getBytes(StandardCharsets.UTF_8));
-        when(processedEventStore.isProcessed("e1")).thenReturn(true);
+        when(processedEventStore.tryStart("e1")).thenReturn(false);
 
         consumer.listen(record);
 
@@ -74,11 +74,25 @@ class UserEventConsumerTest {
         ConsumerRecord<String, String> record = new ConsumerRecord<>("user.unfollowed", 0, 0L, "key",
                 "{\"followerId\":\"f1\",\"followingId\":\"f2\"}");
         record.headers().add(EventHeaders.EVENT_ID, "e2".getBytes(StandardCharsets.UTF_8));
-        when(processedEventStore.isProcessed("e2")).thenReturn(false);
+        when(processedEventStore.tryStart("e2")).thenReturn(true);
 
         consumer.listen(record);
 
         verify(feedService).handleUserUnfollowed("f1", "f2");
         verify(processedEventStore).markProcessed("e2");
+    }
+
+    @Test
+    void listen_releasesEvent_whenHandlingFails() {
+        ConsumerRecord<String, String> record = new ConsumerRecord<>("user.followed", 0, 0L, "key",
+                "{\"followerId\":\"f1\",\"followingId\":\"f2\"}");
+        record.headers().add(EventHeaders.EVENT_ID, "e3".getBytes(StandardCharsets.UTF_8));
+        when(processedEventStore.tryStart("e3")).thenReturn(true);
+        doThrow(new IllegalStateException("post-service down")).when(feedService).handleUserFollowed("f1", "f2");
+
+        assertThrows(IllegalStateException.class, () -> consumer.listen(record));
+
+        verify(processedEventStore, never()).markProcessed(anyString());
+        verify(processedEventStore).release("e3");
     }
 }

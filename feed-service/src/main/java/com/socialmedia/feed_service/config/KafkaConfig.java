@@ -1,5 +1,6 @@
 package com.socialmedia.feed_service.config;
 
+import com.socialmedia.feed_service.service.EventInProgressException;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.context.annotation.Bean;
@@ -62,7 +63,8 @@ public class KafkaConfig {
     static BackOff retryWithoutLimitBackOff(Exception failure) {
         for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
             if (cause instanceof ResourceAccessException
-                    || cause instanceof CallNotPermittedException) {
+                    || cause instanceof CallNotPermittedException
+                    || cause instanceof EventInProgressException) {
                 return new FixedBackOff(RETRY_WITHOUT_LIMIT_INTERVAL_MS, FixedBackOff.UNLIMITED_ATTEMPTS);
             }
         }

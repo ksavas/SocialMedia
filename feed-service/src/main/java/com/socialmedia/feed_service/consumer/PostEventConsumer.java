@@ -23,10 +23,19 @@ public class PostEventConsumer {
     @KafkaListener(topics = {"post.created", "post.deleted"}, groupId = "feed-service")
     public void listen(ConsumerRecord<String, String> record) throws Exception {
         Optional<String> eventId = EventHeaders.eventId(record);
-        if (eventId.isPresent() && processedEventStore.isProcessed(eventId.get())) {
+        if (eventId.isPresent() && !processedEventStore.tryStart(eventId.get())) {
             return;
         }
+        try {
+            handle(record);
+        } catch (Exception e) {
+            eventId.ifPresent(processedEventStore::release);
+            throw e;
+        }
+        eventId.ifPresent(processedEventStore::markProcessed);
+    }
 
+    private void handle(ConsumerRecord<String, String> record) throws Exception {
         String topic = record.topic();
         String payload = record.value();
 
@@ -38,7 +47,5 @@ public class PostEventConsumer {
             PostDeletedEvent event = objectMapper.readValue(payload, PostDeletedEvent.class);
             feedService.handlePostDeleted(event.postId(), event.authorId());
         }
-
-        eventId.ifPresent(processedEventStore::markProcessed);
     }
 }
