@@ -24,6 +24,12 @@ class SecurityConfigTest {
     private PostService postService;
 
     @Test
+    void healthEndpoint_isNotBehindAuthentication() throws Exception {
+        mockMvc.perform(get("/actuator/health"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void shouldReturn401_whenTokenIsMissing() throws Exception {
         mockMvc.perform(get("/api/posts"))
                 .andExpect(status().isUnauthorized())

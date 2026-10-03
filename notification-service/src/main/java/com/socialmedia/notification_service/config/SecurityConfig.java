@@ -33,6 +33,7 @@ public class SecurityConfig {
                 .exceptionHandling(e -> e.authenticationEntryPoint(new HttpStatusServerEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeExchange(auth -> auth
                         .pathMatchers("/api/notifications/stream").permitAll()
+                        .pathMatchers("/actuator/health").permitAll()
                         .anyExchange().authenticated()
                 )
                 .addFilterAt(jwtWebFilter, SecurityWebFiltersOrder.AUTHENTICATION)

@@ -25,6 +25,13 @@ class SecurityConfigTest {
     private StreamTicketService streamTicketService;
 
     @Test
+    void healthEndpoint_isNotBehindAuthentication() {
+        webTestClient.get().uri("/actuator/health")
+                .exchange()
+                .expectStatus().isNotFound();
+    }
+
+    @Test
     void shouldReturn401_whenTokenIsMissing() {
         webTestClient.get().uri("/api/notifications")
                 .exchange()
