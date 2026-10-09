@@ -181,6 +181,7 @@ services:
       REDIS_HOST: redis
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       JWT_SECRET: ${JWT_SECRET:-local-dev-only-secret-key-change-me-0123456789}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:${FRONTEND_PORT:-4300}}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-not-configured}
     networks:
       - social-network
@@ -206,6 +207,7 @@ services:
       MONGO_HOST: mongodb
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       JWT_SECRET: ${JWT_SECRET:-local-dev-only-secret-key-change-me-0123456789}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:${FRONTEND_PORT:-4300}}
     networks:
       - social-network
 
@@ -237,6 +239,7 @@ services:
       POST_SERVICE_URL: http://post-service:8082
       CELEBRITY_FOLLOWER_THRESHOLD: ${CELEBRITY_FOLLOWER_THRESHOLD:-10000}
       JWT_SECRET: ${JWT_SECRET:-local-dev-only-secret-key-change-me-0123456789}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:${FRONTEND_PORT:-4300}}
     networks:
       - social-network
 
@@ -261,6 +264,7 @@ services:
       R2DBC_URL: r2dbc:postgresql://postgres:5432/social_db
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       JWT_SECRET: ${JWT_SECRET:-local-dev-only-secret-key-change-me-0123456789}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:${FRONTEND_PORT:-4300}}
     networks:
       - social-network
 
@@ -277,7 +281,7 @@ services:
       - feed-service
       - notification-service
     ports:
-      - "4200:80"
+      - "${FRONTEND_PORT:-4300}:80"
     networks:
       - social-network
 
