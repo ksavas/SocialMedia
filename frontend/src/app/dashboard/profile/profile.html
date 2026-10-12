@@ -22,13 +22,15 @@
           </div>
         </div>
 
-        <button
-          class="follow-btn"
-          [class.following]="p.isFollowing"
-          (click)="toggleFollow()"
-        >
-          {{ p.isFollowing ? 'Unfollow' : 'Follow' }}
-        </button>
+        @if (!isOwnProfile()) {
+          <button
+            class="follow-btn"
+            [class.following]="p.isFollowing"
+            (click)="toggleFollow()"
+          >
+            {{ p.isFollowing ? 'Unfollow' : 'Follow' }}
+          </button>
+        }
       </div>
     </div>
   }

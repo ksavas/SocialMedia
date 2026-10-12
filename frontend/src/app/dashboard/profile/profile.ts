@@ -1,6 +1,7 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { AuthService, UserProfile } from '../../auth/auth';
+import { AuthStateService } from '../../auth/auth-state.service';
 
 @Component({
   selector: 'app-profile',
@@ -10,10 +11,12 @@ import { AuthService, UserProfile } from '../../auth/auth';
 export class Profile implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly authService = inject(AuthService);
+  private readonly authState = inject(AuthStateService);
 
   profile = signal<UserProfile | null>(null);
   loading = signal(true);
   error = signal('');
+  readonly isOwnProfile = computed(() => this.profile()?.username === this.authState.username());
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id')!;
