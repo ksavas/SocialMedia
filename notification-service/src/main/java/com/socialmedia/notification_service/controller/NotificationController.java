@@ -64,4 +64,10 @@ public class NotificationController {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         return notificationService.markAsRead(id, principal.userId());
     }
+
+    @PutMapping("/read-all")
+    public Mono<Void> markAllAsRead(Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        return notificationService.markAllAsRead(principal.userId());
+    }
 }

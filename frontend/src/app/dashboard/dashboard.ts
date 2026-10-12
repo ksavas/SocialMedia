@@ -3,7 +3,7 @@ import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/rou
 import { DatePipe } from '@angular/common';
 import { AuthService } from '../auth/auth';
 import { AuthStateService } from '../auth/auth-state.service';
-import { NotificationService, NotificationItem } from './notifications/notification.service';
+import { NotificationService } from './notifications/notification.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -29,19 +29,23 @@ export class Dashboard implements OnInit, OnDestroy {
 
   @HostListener('document:click')
   onDocumentClick(): void {
-    this.showPanel.set(false);
+    if (this.showPanel()) this.closePanel();
   }
 
   togglePanel(event: Event): void {
     event.stopPropagation();
-    this.showPanel.update((v) => !v);
+    if (this.showPanel()) {
+      this.closePanel();
+    } else {
+      this.showPanel.set(true);
+      this.notificationSvc.markAllAsRead();
+    }
   }
 
-  markAsRead(n: NotificationItem, event: Event): void {
-    event.stopPropagation();
-    if (!n.read) {
-      this.notificationSvc.markAsRead(n.id);
-    }
+  private closePanel(): void {
+    this.showPanel.set(false);
+    this.notificationSvc.markAllAsRead();
+    this.notificationSvc.showAllAsRead();
   }
 
   logout(): void {

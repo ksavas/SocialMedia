@@ -63,11 +63,11 @@ export class NotificationService {
         const source = new EventSource(`${this.baseUrl}/stream?ticket=${encodeURIComponent(ticket)}`);
         source.onopen = () => {
           this.reconnectDelayMs = INITIAL_RECONNECT_DELAY_MS;
-          this.loadNotifications();
         };
         source.onmessage = (event) => this.handleMessage(JSON.parse(event.data));
         source.onerror = () => this.scheduleReconnect();
         this.eventSource = source;
+        this.loadNotifications();
       },
       error: () => this.scheduleReconnect(),
     });
@@ -108,16 +108,15 @@ export class NotificationService {
     this.newPostCount.set(0);
   }
 
-  markAsRead(id: string): void {
-    const wasUnread = this.notifications().some((n) => n.id === id && !n.read);
-    this.http.put<void>(`${this.baseUrl}/${id}/read`, null).pipe(
-      tap(() => {
-        this.notifications.update((list) =>
-          list.map((n) => (n.id === id ? { ...n, read: true } : n))
-        );
-        if (wasUnread) this.unreadCount.update((n) => Math.max(0, n - 1));
-      })
+  markAllAsRead(): void {
+    if (this.unreadCount() === 0) return;
+    this.http.put<void>(`${this.baseUrl}/read-all`, null).pipe(
+      tap(() => this.unreadCount.set(0))
     ).subscribe();
+  }
+
+  showAllAsRead(): void {
+    this.notifications.update((list) => list.map((n) => (n.read ? n : { ...n, read: true })));
   }
 
   labelFor(n: NotificationItem): string {

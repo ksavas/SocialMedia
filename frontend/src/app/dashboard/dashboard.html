@@ -62,7 +62,7 @@
         <div class="notification-empty">No notifications yet</div>
       }
       @for (n of notificationSvc.notifications(); track n.id) {
-        <div class="notification-item" [class.unread]="!n.read" (click)="markAsRead(n, $event)">
+        <div class="notification-item" [class.unread]="!n.read">
           <span class="notification-text">{{ notificationSvc.labelFor(n) }}</span>
           <span class="notification-time">{{ n.createdAt | date:'short' }}</span>
         </div>

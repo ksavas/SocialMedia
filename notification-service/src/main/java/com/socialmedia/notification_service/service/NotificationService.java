@@ -68,6 +68,10 @@ public class NotificationService {
         return repository.markAsRead(id, userId).then();
     }
 
+    public Mono<Void> markAllAsRead(String userId) {
+        return repository.markAllAsRead(userId).then();
+    }
+
     public Flux<ServerSentEvent<NotificationResponse>> streamNotifications(String userId) {
         Sinks.Many<NotificationResponse> sink = userSinks.computeIfAbsent(
                 userId,
