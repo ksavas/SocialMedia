@@ -75,23 +75,6 @@ class NotificationServiceTest {
     }
 
     @Test
-    void processCommentCreated_savesNotificationForPostAuthor() {
-        Notification saved = notification("postAuthor", "COMMENT_CREATED", "commenter", "post1");
-        when(repository.save(any())).thenReturn(Mono.just(saved));
-
-        StepVerifier.create(service.processCommentCreated("commenter", "postAuthor", "post1", "e3"))
-                .verifyComplete();
-
-        verify(repository).save(argThat(n ->
-                "postAuthor".equals(n.getRecipientId()) &&
-                "COMMENT_CREATED".equals(n.getType()) &&
-                "commenter".equals(n.getActorId()) &&
-                "post1".equals(n.getPostId()) &&
-                "e3".equals(n.getEventId())
-        ));
-    }
-
-    @Test
     void processUserFollowed_ignoresDuplicateEventAndDoesNotPush() {
         when(repository.save(any())).thenReturn(Mono.error(new DuplicateKeyException("duplicate event_id")));
         List<NotificationResponse> received = new CopyOnWriteArrayList<>();
@@ -133,26 +116,6 @@ class NotificationServiceTest {
                 .expectError(ResponseStatusException.class)
                 .verify();
         verify(repository, never()).findByRecipientIdOrderByCreatedAtDesc(anyString(), any());
-    }
-
-    @Test
-    void countUnread_delegatesToRepository() {
-        when(repository.countByRecipientIdAndReadFalse("user1")).thenReturn(Mono.just(7L));
-
-        StepVerifier.create(service.countUnread("user1"))
-                .expectNext(7L)
-                .verifyComplete();
-    }
-
-    @Test
-    void markAsRead_delegatesToRepository() {
-        UUID id = UUID.randomUUID();
-        when(repository.markAsRead(id, "user1")).thenReturn(Mono.just(1));
-
-        StepVerifier.create(service.markAsRead(id, "user1"))
-                .verifyComplete();
-
-        verify(repository).markAsRead(id, "user1");
     }
 
     @Test

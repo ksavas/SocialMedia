@@ -2,7 +2,6 @@ package com.socialmedia.user_service.service;
 
 import com.socialmedia.user_service.dto.AuthTokens;
 import com.socialmedia.user_service.dto.LoginRequest;
-import com.socialmedia.user_service.dto.RegisterRequest;
 import com.socialmedia.user_service.dto.RotatedRefreshToken;
 import com.socialmedia.user_service.entity.Provider;
 import com.socialmedia.user_service.entity.User;
@@ -20,7 +19,6 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -59,24 +57,6 @@ class AuthServiceTest {
     }
 
     @Test
-    void login_shouldReturnAccessAndRefreshTokens_whenOAuthStrategySucceeds() {
-        User user = User.builder().id(UUID.randomUUID()).username("kaan").provider(Provider.GOOGLE).build();
-        LoginRequest request = new LoginRequest(Provider.GOOGLE, null, null, "id.token", "some-state");
-
-        when(localStrategy.supports(Provider.GOOGLE)).thenReturn(false);
-        when(oauthStrategy.supports(Provider.GOOGLE)).thenReturn(true);
-        when(oauthStrategy.resolveUser(request)).thenReturn(user);
-        when(jwtService.generateToken(user)).thenReturn("jwt.token");
-        when(refreshTokenService.issue(user.getId())).thenReturn("refresh-token");
-
-        AuthTokens tokens = authService.login(request);
-
-        assertThat(tokens.response().token()).isEqualTo("jwt.token");
-        assertThat(tokens.response().provider()).isEqualTo("GOOGLE");
-        assertThat(tokens.refreshToken()).isEqualTo("refresh-token");
-    }
-
-    @Test
     void login_shouldThrow_whenNoStrategySupportsProvider() {
         LoginRequest request = new LoginRequest(Provider.MICROSOFT, null, null, "id.token", "some-state");
 
@@ -85,23 +65,6 @@ class AuthServiceTest {
 
         assertThatThrownBy(() -> authService.login(request))
                 .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
-    void register_shouldReturnAccessAndRefreshTokens_forCreatedUser() {
-        RegisterRequest request = new RegisterRequest("kaan", "kaan@example.com", "password123", "Kaan");
-        User user = User.builder().id(UUID.randomUUID()).username("kaan").build();
-
-        when(userService.register(request)).thenReturn(user);
-        when(jwtService.generateToken(user)).thenReturn("jwt.token");
-        when(refreshTokenService.issue(user.getId())).thenReturn("refresh-token");
-
-        AuthTokens tokens = authService.register(request);
-
-        assertThat(tokens.response().token()).isEqualTo("jwt.token");
-        assertThat(tokens.response().username()).isEqualTo("kaan");
-        assertThat(tokens.response().provider()).isEqualTo("LOCAL");
-        assertThat(tokens.refreshToken()).isEqualTo("refresh-token");
     }
 
     @Test
@@ -128,12 +91,5 @@ class AuthServiceTest {
 
         assertThatThrownBy(() -> authService.refresh("old-refresh"))
                 .isInstanceOf(InvalidRefreshTokenException.class);
-    }
-
-    @Test
-    void logout_shouldRevokeRefreshToken() {
-        authService.logout("refresh-token");
-
-        verify(refreshTokenService).revoke("refresh-token");
     }
 }

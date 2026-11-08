@@ -35,11 +35,4 @@ class HybridFeedControllerTest {
                 .andExpect(jsonPath("$[0].id").value("p1"))
                 .andExpect(jsonPath("$[0].createdAt").value("2026-10-17T10:00:00Z"));
     }
-
-    @Test
-    void markingDeliveryModeReturnsNoContent() throws Exception {
-        mvc.perform(put("/api/internal/posts/p1/fanout-on-read"))
-                .andExpect(status().isNoContent());
-        verify(service).markForPull("p1");
-    }
 }

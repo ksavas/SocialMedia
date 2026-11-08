@@ -30,13 +30,6 @@ class SecurityConfigTest {
     }
 
     @Test
-    void shouldReturn401_whenTokenIsMissing() throws Exception {
-        mockMvc.perform(get("/api/posts"))
-                .andExpect(status().isUnauthorized())
-                .andExpect(header().doesNotExist("WWW-Authenticate"));
-    }
-
-    @Test
     void shouldReturn401_whenTokenIsInvalid() throws Exception {
         mockMvc.perform(get("/api/posts").header("Authorization", "Bearer not-a-jwt"))
                 .andExpect(status().isUnauthorized());

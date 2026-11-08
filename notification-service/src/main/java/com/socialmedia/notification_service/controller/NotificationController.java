@@ -12,7 +12,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,8 +20,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/notifications")
@@ -57,12 +54,6 @@ public class NotificationController {
     public Mono<UnreadCountResponse> unreadCount(Authentication authentication) {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         return notificationService.countUnread(principal.userId()).map(UnreadCountResponse::new);
-    }
-
-    @PutMapping("/{id}/read")
-    public Mono<Void> markAsRead(Authentication authentication, @PathVariable UUID id) {
-        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
-        return notificationService.markAsRead(id, principal.userId());
     }
 
     @PutMapping("/read-all")

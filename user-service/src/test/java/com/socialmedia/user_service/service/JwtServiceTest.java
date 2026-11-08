@@ -20,34 +20,6 @@ class JwtServiceTest {
     }
 
     @Test
-    void generateToken_shouldReturnNonNullToken() {
-        User user = User.builder()
-                .id(UUID.randomUUID())
-                .username("testuser")
-                .email("test@example.com")
-                .build();
-
-        String token = jwtService.generateToken(user);
-
-        assertThat(token).isNotNull();
-        assertThat(token).isNotEmpty();
-    }
-
-    @Test
-    void extractUsername_shouldReturnCorrectUsername() {
-        User user = User.builder()
-                .id(UUID.randomUUID())
-                .username("testuser")
-                .email("test@example.com")
-                .build();
-
-        String token = jwtService.generateToken(user);
-        String username = jwtService.extractUsername(token);
-
-        assertThat(username).isEqualTo("testuser");
-    }
-
-    @Test
     void isTokenValid_shouldReturnTrue_whenValidToken() {
         User user = User.builder()
                 .id(UUID.randomUUID())

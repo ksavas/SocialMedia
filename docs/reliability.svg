@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 560" width="1040" height="560" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 600" width="1040" height="600" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">
   <defs>
     <marker id="arrow-gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
@@ -8,11 +8,11 @@
     </marker>
   </defs>
 
-  <rect x="0" y="0" width="1040" height="560" rx="12" fill="#ffffff"/>
+  <rect x="0" y="0" width="1040" height="600" rx="12" fill="#ffffff"/>
 
   <rect x="20" y="14" width="1000" height="206" rx="10" fill="#F8FAFC" stroke="#E2E8F0"/>
   <text x="34" y="34" font-size="12" fill="#64748B" font-weight="600">PRODUCER SIDE · TRANSACTIONAL OUTBOX</text>
-  <rect x="20" y="236" width="1000" height="294" rx="10" fill="#F8FAFC" stroke="#E2E8F0"/>
+  <rect x="20" y="236" width="1000" height="334" rx="10" fill="#F8FAFC" stroke="#E2E8F0"/>
   <text x="34" y="256" font-size="12" fill="#64748B" font-weight="600">CONSUMER SIDE · AT-LEAST-ONCE DELIVERY, IDEMPOTENT PROCESSING</text>
 
   <g text-anchor="middle">
@@ -33,9 +33,9 @@
     <text x="910" y="86" font-size="13" font-weight="600" fill="#7C2D12">Apache Kafka</text>
     <text x="910" y="104" font-size="10.5" fill="#9A3412">event + eventId header</text>
 
-    <rect x="550" y="152" width="170" height="52" rx="8" fill="#F8FAFC" stroke="#94A3B8" stroke-width="1.2"/>
-    <text x="635" y="173" font-size="11.5" font-weight="600" fill="#334155">No ack within 10 s</text>
-    <text x="635" y="190" font-size="10.5" fill="#475569">stays PENDING, retried next poll</text>
+    <rect x="540" y="152" width="190" height="52" rx="8" fill="#F8FAFC" stroke="#94A3B8" stroke-width="1.2"/>
+    <text x="635" y="173" font-size="11.5" font-weight="600" fill="#334155">Send fails or no ack in 10 s</text>
+    <text x="635" y="190" font-size="10.5" fill="#475569">stays PENDING, poller backs off 1 → 30 s</text>
   </g>
 
   <g stroke="#475569" stroke-width="1.5" fill="none">
@@ -79,6 +79,10 @@
     <text x="400" y="412" font-size="12" font-weight="600" fill="#334155">Retry with backoff</text>
     <text x="400" y="429" font-size="10.5" fill="#475569">1 s · 2 s · 4 s · 8 s</text>
 
+    <rect x="300" y="466" width="200" height="48" rx="8" fill="#F8FAFC" stroke="#94A3B8" stroke-width="1.2"/>
+    <text x="400" y="486" font-size="12" font-weight="600" fill="#334155">Retry every 5 s</text>
+    <text x="400" y="503" font-size="10.5" fill="#475569">no limit, never sent to the DLQ</text>
+
     <rect x="40" y="392" width="170" height="48" rx="8" fill="#FFF7ED" stroke="#EA580C" stroke-width="1.5"/>
     <text x="125" y="412" font-size="12" font-weight="600" fill="#7C2D12">&lt;topic&gt;.DLQ</text>
     <text x="125" y="429" font-size="10.5" fill="#9A3412">kept for inspection</text>
@@ -87,7 +91,7 @@
   <g stroke="#EA580C" stroke-width="1.5" fill="none">
     <path d="M910,124 V276" marker-end="url(#arrow-orange)"/>
     <path d="M298,416 H214" marker-end="url(#arrow-orange)"/>
-    <path d="M910,338 V488 H125 V444" marker-end="url(#arrow-orange)"/>
+    <path d="M910,338 V540 H125 V444" marker-end="url(#arrow-orange)"/>
   </g>
   <g stroke="#475569" stroke-width="1.5" fill="none">
     <path d="M818,308 H739" marker-end="url(#arrow-gray)"/>
@@ -96,6 +100,7 @@
     <path d="M298,308 H214" marker-end="url(#arrow-gray)"/>
     <path d="M370,338 V388" marker-end="url(#arrow-gray)"/>
     <path d="M430,390 V340" marker-end="url(#arrow-gray)"/>
+    <path d="M400,442 V462" marker-end="url(#arrow-gray)"/>
   </g>
 
   <g font-size="10.5" fill="#334155" stroke="#F8FAFC" stroke-width="4" stroke-linejoin="round" paint-order="stroke">
@@ -106,8 +111,9 @@
     <text x="364" y="368" text-anchor="end">fails</text>
     <text x="436" y="368">re-poll</text>
     <text x="256" y="408" text-anchor="middle" fill="#9A3412">still failing</text>
-    <text x="518" y="482" text-anchor="middle" fill="#9A3412">malformed JSON: no retry</text>
+    <text x="408" y="457">dependency unavailable (feed-service)</text>
+    <text x="518" y="534" text-anchor="middle" fill="#9A3412">malformed JSON: no retry</text>
   </g>
 
-  <text x="520" y="551" font-size="11" text-anchor="middle" fill="#64748B">Outbox producers: user-service, post-service · Idempotent consumers: feed-service, notification-service, post-service counters</text>
+  <text x="520" y="590" font-size="11" text-anchor="middle" fill="#64748B">Outbox producers: user-service, post-service · Idempotent consumers: feed-service, notification-service, post-service counters</text>
 </svg>

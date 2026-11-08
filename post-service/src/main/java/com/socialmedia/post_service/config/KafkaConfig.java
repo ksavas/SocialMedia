@@ -1,6 +1,7 @@
 package com.socialmedia.post_service.config;
 
 import org.apache.kafka.common.TopicPartition;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
@@ -18,7 +19,8 @@ public class KafkaConfig {
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory(
             ConsumerFactory<String, String> consumerFactory,
-            KafkaTemplate<String, String> kafkaTemplate) {
+            KafkaTemplate<String, String> kafkaTemplate,
+            @Value("${kafka.consumer.concurrency:3}") int concurrency) {
 
         DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
                 kafkaTemplate,
@@ -28,6 +30,7 @@ public class KafkaConfig {
         ConcurrentKafkaListenerContainerFactory<String, String> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory);
+        factory.setConcurrency(concurrency);
         factory.setCommonErrorHandler(consumerErrorHandler(recoverer));
         return factory;
     }

@@ -27,6 +27,7 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_NUM_PARTITIONS: ${KAFKA_NUM_PARTITIONS:-6}
     healthcheck:
       test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 > /dev/null 2>&1"]
       interval: 10s
@@ -65,6 +66,26 @@ services:
       - ./scripts/dummy-users.sql:/docker-entrypoint-initdb.d/z-dummy-users.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U social -d social_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - social-network
+
+  notification-db:
+    image: postgres:15
+    container_name: notification-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: notification
+      POSTGRES_PASSWORD: notification123
+      POSTGRES_DB: notification_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - notification-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notification -d notification_db"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -181,7 +202,7 @@ services:
       REDIS_HOST: redis
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       JWT_SECRET: ${JWT_SECRET:-local-dev-only-secret-key-change-me-0123456789}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:${FRONTEND_PORT:-4300}}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:${FRONTEND_PORT:-4200}}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-not-configured}
     networks:
       - social-network
@@ -207,7 +228,7 @@ services:
       MONGO_HOST: mongodb
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       JWT_SECRET: ${JWT_SECRET:-local-dev-only-secret-key-change-me-0123456789}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:${FRONTEND_PORT:-4300}}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:${FRONTEND_PORT:-4200}}
     networks:
       - social-network
 
@@ -239,7 +260,7 @@ services:
       POST_SERVICE_URL: http://post-service:8082
       CELEBRITY_FOLLOWER_THRESHOLD: ${CELEBRITY_FOLLOWER_THRESHOLD:-10000}
       JWT_SECRET: ${JWT_SECRET:-local-dev-only-secret-key-change-me-0123456789}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:${FRONTEND_PORT:-4300}}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:${FRONTEND_PORT:-4200}}
     networks:
       - social-network
 
@@ -254,17 +275,38 @@ services:
       retries: 12
       start_period: 30s
     depends_on:
-      postgres:
+      notification-db:
         condition: service_healthy
       kafka:
         condition: service_healthy
     ports:
       - "8085:8085"
     environment:
-      R2DBC_URL: r2dbc:postgresql://postgres:5432/social_db
+      R2DBC_URL: r2dbc:postgresql://notification-db:5432/notification_db
+      DB_USERNAME: notification
+      DB_PASSWORD: notification123
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       JWT_SECRET: ${JWT_SECRET:-local-dev-only-secret-key-change-me-0123456789}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:${FRONTEND_PORT:-4300}}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:${FRONTEND_PORT:-4200}}
+    networks:
+      - social-network
+
+  seed:
+    image: curlimages/curl:8.10.1
+    container_name: seed
+    depends_on:
+      user-service:
+        condition: service_healthy
+      post-service:
+        condition: service_healthy
+      feed-service:
+        condition: service_healthy
+      notification-service:
+        condition: service_healthy
+    volumes:
+      - ./scripts/seed-demo.sh:/seed-demo.sh:ro
+    entrypoint: ["sh", "/seed-demo.sh"]
+    restart: "no"
     networks:
       - social-network
 
@@ -281,7 +323,7 @@ services:
       - feed-service
       - notification-service
     ports:
-      - "${FRONTEND_PORT:-4300}:80"
+      - "${FRONTEND_PORT:-4200}:80"
     networks:
       - social-network
 
@@ -291,5 +333,6 @@ networks:
 
 volumes:
   postgres-data:
+  notification-db-data:
   mongo-data:
   redis-data:

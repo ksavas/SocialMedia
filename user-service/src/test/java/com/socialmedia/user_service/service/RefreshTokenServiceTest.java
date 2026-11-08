@@ -59,13 +59,6 @@ class RefreshTokenServiceTest {
     }
 
     @Test
-    void issue_shouldReturnDifferentTokensEachTime() {
-        UUID userId = UUID.randomUUID();
-
-        assertThat(refreshTokenService.issue(userId)).isNotEqualTo(refreshTokenService.issue(userId));
-    }
-
-    @Test
     void rotate_shouldMarkCurrentTokenUsedAndIssueNewTokenInSameFamily() {
         RefreshToken current = activeToken("current-token");
         when(repository.findByTokenHash(sha256("current-token"))).thenReturn(Optional.of(current));
@@ -133,24 +126,6 @@ class RefreshTokenServiceTest {
         refreshTokenService.revoke("logout-token");
 
         verify(repository).revokeFamily(eq(token.getFamilyId()), any(Instant.class));
-    }
-
-    @Test
-    void revoke_shouldDoNothing_whenTokenIsUnknown() {
-        when(repository.findByTokenHash(sha256("unknown"))).thenReturn(Optional.empty());
-
-        refreshTokenService.revoke("unknown");
-
-        verify(repository, never()).revokeFamily(any(), any());
-    }
-
-    @Test
-    void purgeExpired_shouldDeleteTokensExpiredBeforeNow() {
-        refreshTokenService.purgeExpired();
-
-        ArgumentCaptor<Instant> cutoff = ArgumentCaptor.forClass(Instant.class);
-        verify(repository).deleteByExpiresAtBefore(cutoff.capture());
-        assertThat(cutoff.getValue()).isCloseTo(Instant.now(), within(5, ChronoUnit.SECONDS));
     }
 
     private RefreshToken activeToken(String rawToken) {

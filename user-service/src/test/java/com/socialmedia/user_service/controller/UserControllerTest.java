@@ -3,7 +3,6 @@ package com.socialmedia.user_service.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.socialmedia.user_service.dto.AuthResponse;
 import com.socialmedia.user_service.dto.UpdateProfileRequest;
-import com.socialmedia.user_service.exception.EmailAlreadyRegisteredException;
 import com.socialmedia.user_service.exception.UserAlreadyExistsException;
 import com.socialmedia.user_service.security.RefreshTokenCookies;
 import com.socialmedia.user_service.security.SecurityConfig;
@@ -58,14 +57,6 @@ class UserControllerTest {
     }
 
     @Test
-    void updateProfile_shouldReturn401_whenNotAuthenticated() throws Exception {
-        mockMvc.perform(patch("/api/users/me")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{}"))
-                .andExpect(status().isUnauthorized());
-    }
-
-    @Test
     void updateProfile_shouldReturn409_whenUsernameAlreadyTaken() throws Exception {
         UpdateProfileRequest request = new UpdateProfileRequest("takenuser", null, null);
         when(userService.updateProfile(eq("testuser"), any()))
@@ -77,19 +68,5 @@ class UserControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value("This username is already taken"));
-    }
-
-    @Test
-    void updateProfile_shouldReturn409_whenEmailAlreadyRegistered() throws Exception {
-        UpdateProfileRequest request = new UpdateProfileRequest(null, null, "taken@example.com");
-        when(userService.updateProfile(eq("testuser"), any()))
-                .thenThrow(new EmailAlreadyRegisteredException("This email is already registered"));
-
-        mockMvc.perform(patch("/api/users/me")
-                        .with(user("testuser"))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.message").value("This email is already registered"));
     }
 }

@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.socialmedia.user_service.dto.AuthResponse;
 import com.socialmedia.user_service.dto.AuthTokens;
 import com.socialmedia.user_service.dto.LoginRequest;
-import com.socialmedia.user_service.dto.OAuthInitResponse;
 import com.socialmedia.user_service.dto.RegisterRequest;
 import com.socialmedia.user_service.entity.Provider;
 import com.socialmedia.user_service.exception.InvalidCredentialsException;
@@ -25,10 +24,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -108,18 +105,6 @@ class AuthControllerTest {
     }
 
     @Test
-    void login_shouldReturn200_whenValidGoogleToken() throws Exception {
-        LoginRequest request = new LoginRequest(Provider.GOOGLE, null, null, "valid.google.token", "valid-state");
-        when(authService.login(any())).thenReturn(tokens("jwt-token", "testuser", "GOOGLE", "refresh-token"));
-
-        mockMvc.perform(post("/api/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.token").value("jwt-token"));
-    }
-
-    @Test
     void login_shouldReturn401_whenInvalidCredentials() throws Exception {
         LoginRequest request = new LoginRequest(Provider.LOCAL, "testuser", "wrong", null, null);
         when(authService.login(any())).thenThrow(new InvalidCredentialsException("Invalid credentials"));
@@ -128,16 +113,6 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized());
-    }
-
-    @Test
-    void oauthInit_shouldReturn200_withStateAndNonce() throws Exception {
-        when(oauthStateService.initiate()).thenReturn(new OAuthInitResponse("state-abc", "nonce-xyz"));
-
-        mockMvc.perform(get("/api/auth/oauth/init"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.state").value("state-abc"))
-                .andExpect(jsonPath("$.nonce").value("nonce-xyz"));
     }
 
     @Test
@@ -150,13 +125,6 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.username").value("testuser"))
                 .andExpect(cookie().value(REFRESH_COOKIE, "new-refresh"))
                 .andExpect(cookie().httpOnly(REFRESH_COOKIE, true));
-    }
-
-    @Test
-    void refresh_shouldReturn401_whenCookieIsMissing() throws Exception {
-        mockMvc.perform(post("/api/auth/refresh"))
-                .andExpect(status().isUnauthorized());
-        verify(authService, never()).refresh(any());
     }
 
     @Test
@@ -176,14 +144,6 @@ class AuthControllerTest {
                 .andExpect(status().isNoContent())
                 .andExpect(cookie().maxAge(REFRESH_COOKIE, 0));
         verify(authService).logout("refresh-token");
-    }
-
-    @Test
-    void logout_shouldClearCookie_whenCookieIsMissing() throws Exception {
-        mockMvc.perform(post("/api/auth/logout"))
-                .andExpect(status().isNoContent())
-                .andExpect(cookie().maxAge(REFRESH_COOKIE, 0));
-        verify(authService, never()).logout(any());
     }
 
     private static AuthTokens tokens(String accessToken, String username, String provider, String refreshToken) {

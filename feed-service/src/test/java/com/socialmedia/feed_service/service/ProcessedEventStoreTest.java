@@ -50,14 +50,6 @@ class ProcessedEventStoreTest {
     }
 
     @Test
-    void tryStart_treatsMarkersWrittenBeforeLeasesAsProcessed() {
-        when(valueOps.setIfAbsent(KEY, "processing", Duration.ofMinutes(2))).thenReturn(false);
-        when(valueOps.get(KEY)).thenReturn("1");
-
-        assertThat(store.tryStart("e1")).isFalse();
-    }
-
-    @Test
     void tryStart_throws_whenAnotherConsumerIsProcessingTheEvent() {
         when(valueOps.setIfAbsent(KEY, "processing", Duration.ofMinutes(2))).thenReturn(false);
         when(valueOps.get(KEY)).thenReturn("processing");

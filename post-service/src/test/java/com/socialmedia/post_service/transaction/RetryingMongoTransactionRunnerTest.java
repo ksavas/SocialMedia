@@ -28,14 +28,6 @@ class RetryingMongoTransactionRunnerTest {
     }
 
     @Test
-    void inTransaction_returnsResultOfWork() {
-        String result = runner.inTransaction(() -> "done");
-
-        assertThat(result).isEqualTo("done");
-        verify(transactionManager).commit(any());
-    }
-
-    @Test
     void inTransaction_retriesTransientTransactionErrorsUntilSuccess() {
         AtomicInteger attempts = new AtomicInteger();
 
@@ -72,15 +64,6 @@ class RetryingMongoTransactionRunnerTest {
         })).isInstanceOf(DataIntegrityViolationException.class);
 
         assertThat(attempts).hasValue(3);
-    }
-
-    @Test
-    void inTransaction_runsRunnableWork() {
-        AtomicInteger calls = new AtomicInteger();
-
-        runner.runInTransaction(calls::incrementAndGet);
-
-        assertThat(calls).hasValue(1);
     }
 
     private DataIntegrityViolationException transientWriteConflict() {

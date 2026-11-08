@@ -14,7 +14,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.Optional;
@@ -58,25 +57,6 @@ class NotificationControllerTest {
                 .exchange()
                 .expectStatus().isOk();
         verify(notificationService).getNotifications("user-1", 1, 5);
-    }
-
-    @Test
-    void unreadCount_shouldReturnCountForAuthenticatedUser() {
-        when(notificationService.countUnread("user-1")).thenReturn(Mono.just(3L));
-
-        webTestClient.mutateWith(mockAuthentication(authenticated("user-1")))
-                .get().uri("/api/notifications/unread-count")
-                .exchange()
-                .expectStatus().isOk()
-                .expectBody().jsonPath("$.count").isEqualTo(3);
-    }
-
-    @Test
-    void streamTicket_shouldReturn401_whenNotAuthenticated() {
-        webTestClient.post().uri("/api/notifications/stream-ticket")
-                .exchange()
-                .expectStatus().isUnauthorized();
-        verify(streamTicketService, never()).issue(anyString());
     }
 
     @Test

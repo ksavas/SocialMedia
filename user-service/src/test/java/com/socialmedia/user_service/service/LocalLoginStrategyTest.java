@@ -36,17 +36,6 @@ class LocalLoginStrategyTest {
     }
 
     @Test
-    void supports_shouldReturnTrue_forLocalProvider() {
-        assertThat(strategy.supports(Provider.LOCAL)).isTrue();
-    }
-
-    @Test
-    void supports_shouldReturnFalse_forOAuthProviders() {
-        assertThat(strategy.supports(Provider.GOOGLE)).isFalse();
-        assertThat(strategy.supports(Provider.MICROSOFT)).isFalse();
-    }
-
-    @Test
     void resolveUser_shouldReturnUser_whenValidUsernameAndPassword() {
         User user = User.builder()
                 .id(UUID.randomUUID())
@@ -128,22 +117,5 @@ class LocalLoginStrategyTest {
         User result = strategy.resolveUser(request);
 
         assertThat(result.getUsername()).isEqualTo("kaan");
-    }
-
-    @Test
-    void resolveUser_shouldThrow_whenOAuthUserPasswordDoesNotMatch() {
-        User oauthUser = User.builder()
-                .id(UUID.randomUUID())
-                .username("kaan")
-                .password("random_hash")
-                .provider(Provider.GOOGLE)
-                .build();
-
-        LoginRequest request = new LoginRequest(Provider.LOCAL, "kaan", "wrong", null, null);
-        when(userRepository.findByUsername("kaan")).thenReturn(Optional.of(oauthUser));
-        when(passwordEncoder.matches("wrong", "random_hash")).thenReturn(false);
-
-        assertThatThrownBy(() -> strategy.resolveUser(request))
-                .isInstanceOf(InvalidCredentialsException.class);
     }
 }

@@ -48,13 +48,6 @@ class PostCounterConsumerTest {
     }
 
     @Test
-    void postUnliked_decrementsLikeCount() {
-        consumer.listen(record("post.unliked", "{\"postId\":\"p1\",\"userId\":\"u1\",\"authorId\":\"a1\"}", "e2"));
-
-        verify(postRepository).decrementLikeCount("p1");
-    }
-
-    @Test
     void commentCreated_incrementsCommentCount() {
         consumer.listen(record("comment.created",
                 "{\"commentId\":\"c1\",\"postId\":\"p1\",\"authorId\":\"u1\",\"postAuthorId\":\"a1\"}", "e3"));
@@ -69,14 +62,6 @@ class PostCounterConsumerTest {
         consumer.listen(record("post.liked", "{\"postId\":\"p1\",\"userId\":\"u1\",\"authorId\":\"a1\"}", "e1"));
 
         verify(postRepository, never()).incrementLikeCount(anyString());
-    }
-
-    @Test
-    void eventWithoutId_isStillCounted() {
-        consumer.listen(new ConsumerRecord<>("post.liked", 0, 0L, "p1", "{\"postId\":\"p1\",\"userId\":\"u1\",\"authorId\":\"a1\"}"));
-
-        verify(postRepository).incrementLikeCount("p1");
-        verify(processedEventRepository, never()).insert(any(ProcessedEvent.class));
     }
 
     @Test

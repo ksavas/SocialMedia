@@ -6,6 +6,8 @@ import com.socialmedia.feed_service.service.FeedService;
 import com.socialmedia.feed_service.service.PostServiceClient;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.dao.QueryTimeoutException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,7 +32,7 @@ public class FeedController {
     public List<PostDto> getFeed(@AuthenticationPrincipal UserPrincipal principal,
                                  @RequestParam(defaultValue = "0") int page,
                                  @RequestParam(defaultValue = "20") int size) {
-        List<String> postIds = feedService.getFeedPostIds(principal.userId(), page, size);
+        List<String> postIds = loadFeedPostIds(principal.userId(), page, size);
         if (postIds.isEmpty()) {
             return List.of();
         }
@@ -38,6 +40,14 @@ public class FeedController {
             return postServiceClient.getPostsByIds(postIds, principal.userId());
         } catch (ResourceAccessException | HttpServerErrorException | CallNotPermittedException e) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Post service unavailable", e);
+        }
+    }
+
+    private List<String> loadFeedPostIds(String userId, int page, int size) {
+        try {
+            return feedService.getFeedPostIds(userId, page, size);
+        } catch (DataAccessResourceFailureException | QueryTimeoutException e) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Feed store unavailable", e);
         }
     }
 }

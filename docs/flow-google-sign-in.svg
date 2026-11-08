@@ -36,10 +36,10 @@
   <path d="M401,362 H638" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrow-gray)"/>
   <text x="520" y="355" font-size="11" text-anchor="middle" fill="#334155" stroke="#ffffff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">8 · POST /api/auth/login {GOOGLE, idToken, state}</text>
   <path d="M651,398 H888" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrow-gray)"/>
-  <text x="770" y="391" font-size="11" text-anchor="middle" fill="#334155" stroke="#ffffff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">9 · GET + DELETE state (single use)</text>
+  <text x="770" y="391" font-size="11" text-anchor="middle" fill="#334155" stroke="#ffffff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">9 · GETDEL oauth:state:{state} (single use)</text>
   <rect x="468" y="421" width="355" height="24" rx="6" fill="#F8FAFC" stroke="#94A3B8" stroke-width="1"/>
   <text x="645" y="437" font-size="11" text-anchor="middle" fill="#334155">10 · verify signature, audience, nonce, email_verified</text>
   <path d="M639,470 H402" stroke="#475569" stroke-width="1.5" fill="none" stroke-dasharray="5 4" marker-end="url(#arrow-gray)"/>
-  <text x="520" y="463" font-size="11" text-anchor="middle" fill="#334155" stroke="#ffffff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">11 · application JWT</text>
+  <text x="520" y="463" font-size="11" text-anchor="middle" fill="#334155" stroke="#ffffff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">11 · access token + refresh token cookie</text>
   <text x="520" y="526" font-size="11" text-anchor="middle" fill="#64748B">Gray: synchronous requests · Dashed: responses</text>
 </svg>

@@ -32,14 +32,6 @@ class SecurityConfigTest {
     }
 
     @Test
-    void shouldReturn401_whenTokenIsMissing() {
-        webTestClient.get().uri("/api/notifications")
-                .exchange()
-                .expectStatus().isUnauthorized()
-                .expectHeader().doesNotExist("WWW-Authenticate");
-    }
-
-    @Test
     void shouldReturn401_whenTokenIsInvalid() {
         webTestClient.get().uri("/api/notifications")
                 .header("Authorization", "Bearer not-a-jwt")

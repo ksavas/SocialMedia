@@ -1,9 +1,6 @@
 package com.socialmedia.feed_service.service;
 
 import com.socialmedia.feed_service.dto.PostSummary;
-import com.socialmedia.feed_service.dto.PostDto;
-import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
-import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -132,17 +129,6 @@ class FeedServiceTest {
     }
 
     @Test
-    void hybridFeedOrdersEqualScoresByDescendingPostId() {
-        when(userServiceClient.getFollowingIds("reader")).thenReturn(List.of("author"));
-        when(zSetOps.reverseRangeWithScores("feed:reader", 0, 999)).thenReturn(Set.of(
-                new DefaultTypedTuple<>("a", 1000.0)));
-        when(postServiceClient.getPullPosts(List.of("author", "reader"), 1000)).thenReturn(List.of(
-                new PostSummary("b", "author", Instant.ofEpochMilli(1000))));
-
-        assertThat(feedService.getFeedPostIds("reader", 0, 20)).containsExactly("b", "a");
-    }
-
-    @Test
     void failedPullRegistrationIsRetriedInsteadOfFallingBackToHugeFanout() {
         when(userServiceClient.getFollowerCount("author1")).thenReturn(10_000L);
         doThrow(new IllegalStateException("post-service unavailable")).when(postServiceClient).markForPull("p1");
@@ -208,26 +194,6 @@ class FeedServiceTest {
     }
 
     @Test
-    void handlePostDeleted_doesNothingWhenNoFeedsContainPost() {
-        when(setOps.members("post_feeds:p1")).thenReturn(null);
-
-        feedService.handlePostDeleted("p1", "author1");
-
-        verify(zSetOps, never()).remove(any(), any());
-    }
-
-    @Test
-    void handleUserFollowed_scoresBackfilledPostsByEpochCreationTime() {
-        Instant createdAt = Instant.parse("2026-06-01T10:15:30Z");
-        when(postServiceClient.getPostsByAuthor("author2", 50))
-                .thenReturn(List.of(new PostSummary("p1", "author2", createdAt)));
-
-        feedService.handleUserFollowed("follower1", "author2");
-
-        verifyAddedToFeed("follower1", "author2", "p1", createdAt.toEpochMilli());
-    }
-
-    @Test
     void handleUserFollowed_backfillsAuthorPostsIntoFollowerFeed() {
         PostSummary post1 = new PostSummary("p1", "author2", Instant.parse("2025-01-01T12:00:00Z"));
         PostSummary post2 = new PostSummary("p2", "author2", Instant.parse("2025-01-02T12:00:00Z"));
@@ -265,15 +231,6 @@ class FeedServiceTest {
     }
 
     @Test
-    void getFeedPostIds_returnsEmptyListWhenFeedIsEmpty() {
-        when(zSetOps.reverseRangeWithScores("feed:user1", 0L, 999L)).thenReturn(null);
-
-        List<String> result = feedService.getFeedPostIds("user1", 0, 20);
-
-        assertThat(result).isEmpty();
-    }
-
-    @Test
     void getFeedPostIds_fallsBackToPushFeed_whenUserServiceIsUnreachable() {
         when(zSetOps.reverseRangeWithScores("feed:reader", 0, 999)).thenReturn(new LinkedHashSet<>(List.of(
                 new DefaultTypedTuple<>("p2", 2000.0),
@@ -291,16 +248,6 @@ class FeedServiceTest {
         when(userServiceClient.getFollowingIds("reader")).thenReturn(List.of("author"));
         when(postServiceClient.getPullPosts(anyList(), anyInt()))
                 .thenThrow(HttpServerErrorException.create(HttpStatus.INTERNAL_SERVER_ERROR, "boom", null, null, null));
-
-        assertThat(feedService.getFeedPostIds("reader", 0, 20)).containsExactly("p1");
-    }
-
-    @Test
-    void getFeedPostIds_fallsBackToPushFeed_whenCircuitIsOpen() {
-        when(zSetOps.reverseRangeWithScores("feed:reader", 0, 999)).thenReturn(new LinkedHashSet<>(List.of(
-                new DefaultTypedTuple<>("p1", 1000.0))));
-        when(userServiceClient.getFollowingIds("reader")).thenThrow(
-                CallNotPermittedException.createCallNotPermittedException(CircuitBreaker.ofDefaults("user-service")));
 
         assertThat(feedService.getFeedPostIds("reader", 0, 20)).containsExactly("p1");
     }

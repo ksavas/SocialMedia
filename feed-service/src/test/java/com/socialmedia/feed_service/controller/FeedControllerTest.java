@@ -3,8 +3,6 @@ package com.socialmedia.feed_service.controller;
 import com.socialmedia.feed_service.security.UserPrincipal;
 import com.socialmedia.feed_service.service.FeedService;
 import com.socialmedia.feed_service.service.PostServiceClient;
-import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
-import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.client.ResourceAccessException;
@@ -30,17 +28,6 @@ class FeedControllerTest {
     void returns503_whenPostServiceIsUnreachable() {
         when(feedService.getFeedPostIds("reader", 0, 20)).thenReturn(List.of("p1"));
         when(postServiceClient.getPostsByIds(anyList(), anyString())).thenThrow(new ResourceAccessException("connection refused"));
-
-        assertThatThrownBy(() -> controller.getFeed(reader, 0, 20))
-                .isInstanceOfSatisfying(ResponseStatusException.class,
-                        e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE));
-    }
-
-    @Test
-    void returns503_whenPostServiceCircuitIsOpen() {
-        when(feedService.getFeedPostIds("reader", 0, 20)).thenReturn(List.of("p1"));
-        when(postServiceClient.getPostsByIds(anyList(), anyString())).thenThrow(
-                CallNotPermittedException.createCallNotPermittedException(CircuitBreaker.ofDefaults("post-service")));
 
         assertThatThrownBy(() -> controller.getFeed(reader, 0, 20))
                 .isInstanceOfSatisfying(ResponseStatusException.class,

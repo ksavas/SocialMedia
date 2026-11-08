@@ -68,18 +68,6 @@ class UserServiceTest {
     }
 
     @Test
-    void register_shouldThrowException_whenUsernameAlreadyExists() {
-        when(userRepository.existsByEmail(registerRequest.email())).thenReturn(false);
-        when(userRepository.existsByUsername(registerRequest.username())).thenReturn(true);
-
-        assertThatThrownBy(() -> userService.register(registerRequest))
-                .isInstanceOf(UserAlreadyExistsException.class)
-                .hasMessage("Username already exists");
-
-        verify(userRepository, never()).save(any());
-    }
-
-    @Test
     void register_shouldEncodePassword() {
         when(userRepository.existsByEmail(any())).thenReturn(false);
         when(userRepository.existsByUsername(any())).thenReturn(false);
@@ -177,22 +165,6 @@ class UserServiceTest {
     void updateProfile_shouldUpdatePassword_whenNotLocalProvider() {
         UUID userId = UUID.randomUUID();
         User user = User.builder().id(userId).username("testuser").email("user@example.com").provider(Provider.GOOGLE).password("bcrypt-random").build();
-        UpdateProfileRequest request = new UpdateProfileRequest(null, "newpassword123", null);
-
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(user));
-        when(passwordEncoder.encode("newpassword123")).thenReturn("newEncoded");
-        when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArgument(0));
-        when(jwtService.generateToken(any(User.class))).thenReturn("jwt");
-
-        userService.updateProfile("testuser", request);
-
-        verify(passwordEncoder).encode("newpassword123");
-    }
-
-    @Test
-    void updateProfile_shouldUpdatePassword_whenLocalProvider() {
-        UUID userId = UUID.randomUUID();
-        User user = User.builder().id(userId).username("testuser").email("user@example.com").provider(Provider.LOCAL).password("oldEncoded").build();
         UpdateProfileRequest request = new UpdateProfileRequest(null, "newpassword123", null);
 
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(user));

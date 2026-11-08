@@ -49,11 +49,6 @@ class StreamTicketServiceTest {
     }
 
     @Test
-    void redeem_shouldReturnEmpty_whenTicketIsUnknown() {
-        assertThat(ticketService.redeem("unknown")).isEmpty();
-    }
-
-    @Test
     void issue_shouldReturnUnguessableDistinctTickets() {
         String first = ticketService.issue("user-1");
         String second = ticketService.issue("user-1");

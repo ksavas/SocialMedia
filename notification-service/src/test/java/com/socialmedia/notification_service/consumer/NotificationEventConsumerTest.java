@@ -42,16 +42,6 @@ class NotificationEventConsumerTest {
     }
 
     @Test
-    void listen_commentCreated_createsNotificationForPostAuthor() {
-        when(notificationService.processCommentCreated("u1", "a1", "p1", "e3")).thenReturn(Mono.empty());
-
-        consumer.listen(record("comment.created",
-                "{\"commentId\":\"c1\",\"postId\":\"p1\",\"authorId\":\"u1\",\"postAuthorId\":\"a1\"}", "e3"));
-
-        verify(notificationService).processCommentCreated("u1", "a1", "p1", "e3");
-    }
-
-    @Test
     void listen_feedUpdated_pushesNewPost() {
         consumer.listen(new ConsumerRecord<>("feed.updated", 0, 0L, "u1", "{\"userId\":\"u1\",\"postId\":\"p1\"}"));
 

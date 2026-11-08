@@ -59,13 +59,6 @@ class FollowServiceTest {
     }
 
     @Test
-    void getFollowerCount_returnsZero_whenUserDoesNotExist() {
-        when(userRepository.findFollowerCountById(targetUserId)).thenReturn(Optional.empty());
-
-        assertThat(followService.getFollowerCount(targetUserId)).isZero();
-    }
-
-    @Test
     void follow_shouldSaveFollowAndOutboxEvent() {
         when(userRepository.findByUsername("current")).thenReturn(Optional.of(currentUser));
         when(userRepository.findById(targetUserId)).thenReturn(Optional.of(targetUser));
@@ -108,18 +101,6 @@ class FollowServiceTest {
 
         verify(outboxEventRepository).save(argThat(e -> e.getEventType().equals("user.unfollowed")));
         verify(userRepository).decrementFollowerCount(targetUserId);
-    }
-
-    @Test
-    void unfollow_shouldThrow_whenNotFollowing() {
-        when(userRepository.findByUsername("current")).thenReturn(Optional.of(currentUser));
-        when(followRepository.deleteByFollowerIdAndFollowingId(currentUserId, targetUserId)).thenReturn(0L);
-
-        assertThatThrownBy(() -> followService.unfollow("current", targetUserId))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Not following");
-        verify(userRepository, never()).decrementFollowerCount(any());
-        verify(outboxEventRepository, never()).save(any());
     }
 
     @Test

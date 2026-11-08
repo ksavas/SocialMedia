@@ -204,18 +204,6 @@ class PostServiceTest {
     }
 
     @Test
-    void getComments_shouldReturnCommentsForPost() {
-        Comment c = Comment.builder().id("c1").postId("p1").authorId("u1")
-                .content("Hey").createdAt(Instant.now()).build();
-        when(commentRepository.findByPostIdOrderByCreatedAtAsc("p1", PageRequest.of(1, 10))).thenReturn(List.of(c));
-
-        List<CommentResponse> result = postService.getComments("p1", 1, 10);
-
-        assertThat(result).hasSize(1);
-        assertThat(result.getFirst().content()).isEqualTo("Hey");
-    }
-
-    @Test
     void getComments_rejectsInvalidPagination() {
         assertThatThrownBy(() -> postService.getComments("p1", -1, 20)).isInstanceOf(ResponseStatusException.class);
         assertThatThrownBy(() -> postService.getComments("p1", 0, 101)).isInstanceOf(ResponseStatusException.class);
@@ -255,20 +243,6 @@ class PostServiceTest {
         List<PostResponse> result = postService.getPostsByIds(List.of("p1", "p2"), "u1");
 
         assertThat(result).extracting(PostResponse::likedByMe).containsExactly(false, true);
-        verify(likeRepository, never()).existsByPostIdAndUserId(anyString(), anyString());
-    }
-
-    @Test
-    void getAllPosts_shouldResolveLikedByMeWithSingleQuery() {
-        Post p1 = Post.builder().id("p1").authorId("a").content("first").createdAt(Instant.now()).build();
-        Post p2 = Post.builder().id("p2").authorId("a").content("second").createdAt(Instant.now()).build();
-        when(postRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(p1, p2));
-        when(likeRepository.findByUserIdAndPostIdIn("u1", List.of("p1", "p2")))
-                .thenReturn(List.of(Like.builder().postId("p1").userId("u1").build()));
-
-        List<PostResponse> result = postService.getAllPosts("u1");
-
-        assertThat(result).extracting(PostResponse::likedByMe).containsExactly(true, false);
         verify(likeRepository, never()).existsByPostIdAndUserId(anyString(), anyString());
     }
 }

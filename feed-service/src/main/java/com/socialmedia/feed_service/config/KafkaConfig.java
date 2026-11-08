@@ -3,8 +3,11 @@ package com.socialmedia.feed_service.config;
 import com.socialmedia.feed_service.service.EventInProgressException;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import org.apache.kafka.common.TopicPartition;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.dao.QueryTimeoutException;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -25,7 +28,8 @@ public class KafkaConfig {
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory(
             ConsumerFactory<String, String> consumerFactory,
-            KafkaTemplate<String, String> kafkaTemplate) {
+            KafkaTemplate<String, String> kafkaTemplate,
+            @Value("${kafka.consumer.concurrency:3}") int concurrency) {
 
         DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
                 kafkaTemplate,
@@ -35,6 +39,7 @@ public class KafkaConfig {
         ConcurrentKafkaListenerContainerFactory<String, String> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory);
+        factory.setConcurrency(concurrency);
         factory.setCommonErrorHandler(consumerErrorHandler(recoverer));
         return factory;
     }
@@ -64,7 +69,9 @@ public class KafkaConfig {
         for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
             if (cause instanceof ResourceAccessException
                     || cause instanceof CallNotPermittedException
-                    || cause instanceof EventInProgressException) {
+                    || cause instanceof EventInProgressException
+                    || cause instanceof DataAccessResourceFailureException
+                    || cause instanceof QueryTimeoutException) {
                 return new FixedBackOff(RETRY_WITHOUT_LIMIT_INTERVAL_MS, FixedBackOff.UNLIMITED_ATTEMPTS);
             }
         }

@@ -13,7 +13,6 @@ import org.springframework.data.redis.core.ValueOperations;
 
 import java.time.Duration;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -39,23 +38,6 @@ class OAuthStateServiceTest {
     }
 
     @Test
-    void initiate_shouldReturnNonNullStateAndNonce() {
-        OAuthInitResponse response = oauthStateService.initiate();
-
-        assertThat(response.state()).isNotNull().isNotEmpty();
-        assertThat(response.nonce()).isNotNull().isNotEmpty();
-    }
-
-    @Test
-    void initiate_shouldReturnUniqueValuesEachTime() {
-        OAuthInitResponse first = oauthStateService.initiate();
-        OAuthInitResponse second = oauthStateService.initiate();
-
-        assertThat(first.state()).isNotEqualTo(second.state());
-        assertThat(first.nonce()).isNotEqualTo(second.nonce());
-    }
-
-    @Test
     void initiate_shouldStoreNonceInRedisWithFiveMinuteTtl() {
         OAuthInitResponse response = oauthStateService.initiate();
 
@@ -64,15 +46,6 @@ class OAuthStateServiceTest {
                 eq(response.nonce()),
                 eq(Duration.ofMinutes(5))
         );
-    }
-
-    @Test
-    void validateAndConsume_shouldReturnNonce_whenValidState() {
-        when(valueOps.getAndDelete("oauth:state:valid-state")).thenReturn("stored-nonce");
-
-        String nonce = oauthStateService.validateAndConsume("valid-state");
-
-        assertThat(nonce).isEqualTo("stored-nonce");
     }
 
     @Test

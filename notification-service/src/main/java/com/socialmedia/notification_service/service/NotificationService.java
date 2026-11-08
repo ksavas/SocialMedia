@@ -19,7 +19,6 @@ import reactor.util.concurrent.Queues;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
@@ -64,10 +63,6 @@ public class NotificationService {
         return repository.countByRecipientIdAndReadFalse(userId);
     }
 
-    public Mono<Void> markAsRead(UUID id, String userId) {
-        return repository.markAsRead(id, userId).then();
-    }
-
     public Mono<Void> markAllAsRead(String userId) {
         return repository.markAllAsRead(userId).then();
     }
@@ -99,6 +94,9 @@ public class NotificationService {
     }
 
     private Mono<Void> create(String recipientId, String type, String actorId, String postId, String eventId) {
+        if (recipientId.equals(actorId)) {
+            return Mono.empty();
+        }
         Notification notification = Notification.builder()
                 .recipientId(recipientId)
                 .type(type)
