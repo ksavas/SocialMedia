@@ -110,10 +110,10 @@ Configuration is supplied through environment variables in `docker-compose.yml`,
 
 ### **gateway-service · `:8080`**
 
-Responsible for routing browser requests to the services; it is the only backend address the frontend uses.<br>
+**Responsible for:** Routing browser requests to the services; it is the only backend address the frontend uses.<br>
 The gateway was added only for routing and is outside the main scope of the project, which focuses on the feed architecture. Rate limiting and SSL termination are not implemented and are left as future work.<br>
-*Patterns: API Gateway*<br>
-*Key dependencies: Spring Cloud Gateway (WebFlux), Spring Boot Actuator*
+**Patterns:** *API Gateway*<br>
+**Key dependencies:** *Spring Cloud Gateway (WebFlux), Spring Boot Actuator*
 
 - **Path-based routing:** `/api/auth/**` and `/api/users/**` are routed to user-service, `/api/posts/**` to post-service, `/api/feed/**` to feed-service and `/api/notifications/**` to notification-service; target addresses come from configuration.
 - **Streaming pass-through:** The reactive gateway forwards the SSE notification stream without buffering.
@@ -122,9 +122,9 @@ The gateway was added only for routing and is outside the main scope of the proj
 
 ### **user-service · `:8081`**
 
-Responsible for registration, local and Google authentication, token management, user profiles and the follow graph.<br>
-*Patterns: Strategy, Transactional Outbox, refresh token rotation*<br>
-*Key dependencies: Spring MVC, Spring Data JPA, Spring Security, Spring Data Redis, Spring Kafka, JJWT, Google API Client*
+**Responsible for:** Registration, local and Google authentication, token management, user profiles and the follow graph.<br>
+**Patterns:** *Strategy, Transactional Outbox, refresh token rotation*<br>
+**Key dependencies:** *Spring MVC, Spring Data JPA, Spring Security, Spring Data Redis, Spring Kafka, JJWT, Google API Client*
 
 - **Authentication through the Strategy pattern:** Local and OAuth sign-in are separate strategies, and each OAuth provider is a separate token verifier. A Microsoft verifier has been added on the server, but Microsoft sign-in is not implemented: the frontend offers only Google, and Microsoft client ID is not configured.
 - **Short-lived access tokens and rotated refresh tokens:** Access tokens expire after 15 minutes. Refresh tokens are delivered in an `HttpOnly` cookie, stored only as hashes and rotated on every use; reuse of a previous token revokes the entire token family.
@@ -140,9 +140,9 @@ Responsible for registration, local and Google authentication, token management,
 
 ### **post-service · `:8082`**
 
-Responsible for posts, likes, comments and their counters.<br>
-*Patterns: Transactional Outbox, asynchronous counters, idempotent consumer, retry with jittered backoff*<br>
-*Key dependencies: Spring MVC, Spring Data MongoDB, Spring Security, Spring Kafka, JJWT*
+**Responsible for:** Posts, likes, comments and their counters.<br>
+**Patterns:** *Transactional Outbox, asynchronous counters, idempotent consumer, retry with jittered backoff*<br>
+**Key dependencies:** *Spring MVC, Spring Data MongoDB, Spring Security, Spring Kafka, JJWT*
 
 - **Elimination of hot-key contention:** Updating the like counter within the like transaction caused 9 of 10 concurrent likes to fail with write conflicts. To resolve this, counters are updated asynchronously by a dedicated consumer; all concurrent likes succeed and the counter converges to the correct value.
 - **Idempotent counter updates:** Each processed event is recorded in the same transaction as the counter update; therefore redelivered events don't have any effect.
@@ -157,9 +157,9 @@ Responsible for posts, likes, comments and their counters.<br>
 
 ### **feed-service · `:8084`**
 
-Responsible for building and serving each user's home feed.<br>
-*Patterns: fan-out on write, fan-out on read (hybrid feed), circuit breaker, graceful degradation, idempotent consumer*<br>
-*Key dependencies: Spring MVC (RestClient), Spring Data Redis (Lettuce), Spring Security, Spring Kafka, Resilience4j, JJWT*
+**Responsible for:** Building and serving each user's home feed.<br>
+**Patterns:** *Fan-out on write, fan-out on read (hybrid feed), circuit breaker, graceful degradation, idempotent consumer*<br>
+**Key dependencies:** *Spring MVC (RestClient), Spring Data Redis (Lettuce), Spring Security, Spring Kafka, Resilience4j, JJWT*
 
 - **Fan-out on write:** When a post is created, its ID is added to the feeds of the author and all followers in Redis.
 - **Fan-out on read for high-follower accounts:** Posts from authors with at least a configurable number of followers (default 10,000) are not distributed; they are merged into the feed at read time.
@@ -181,9 +181,9 @@ Responsible for building and serving each user's home feed.<br>
 
 ### **notification-service · `:8085`**
 
-Responsible for storing notifications and pushing them to the browser in real time through Server-Sent Events (SSE).<br>
-*Patterns: real-time push (Server-Sent Events), reactive streams, idempotent consumer, retry with backoff and DLQ*<br>
-*Key dependencies: Spring WebFlux, Project Reactor, Spring Data R2DBC, Spring Security, Spring Kafka, JJWT*
+**Responsible for:** Storing notifications and pushing them to the browser in real time through Server-Sent Events (SSE).<br>
+**Patterns:** *Real-time push (Server-Sent Events), reactive streams, idempotent consumer, retry with backoff and DLQ*<br>
+**Key dependencies:** *Spring WebFlux, Project Reactor, Spring Data R2DBC, Spring Security, Spring Kafka, JJWT*
 
 - **Real-time delivery over Server-Sent Events:** Each signed-in browser keeps one long-lived SSE connection. Events consumed from Kafka are pushed through a per-user reactive stream to every open tab: likes, comments and follows as notifications, and new feed posts as a "new posts" indicator. A heartbeat every 25 seconds keeps idle connections open through proxies.
 - **Reactive stack for long-lived connections:** WebFlux and R2DBC serve open SSE connections without dedicating a thread to each connection.
@@ -192,8 +192,8 @@ Responsible for storing notifications and pushing them to the browser in real ti
 
 ### **Kafka**
 
-Responsible for propagating state changes between services.<br>
-*Patterns: Transactional Outbox, at-least-once delivery, retry with exponential backoff, dead letter queue*
+**Responsible for:** Propagating state changes between services.<br>
+**Patterns:** *Transactional Outbox, at-least-once delivery, retry with exponential backoff, dead letter queue*
 
 - **Prevention of dual writes:** Each business change and its outbox event are committed in the same transaction. A poller publishes pending events and marks them as processed only after broker acknowledgment; during a Kafka outage, events are retained and delivered in order once the broker recovers.
 - **Parallel consumption with per-entity ordering:** Topics are created with 6 partitions and each listener runs 3 consumer threads; message keys route all events of the same post or follower to the same partition.
@@ -235,8 +235,8 @@ Responsible for propagating state changes between services.<br>
 
 ### **Redis**
 
-Responsible for storing precomputed feeds and short-lived keys for idempotency and OAuth.<br>
-*Patterns: precomputed read model, atomic Lua script, idempotency key with lease*
+**Responsible for:** Storing precomputed feeds and short-lived keys for idempotency and OAuth.<br>
+**Patterns:** *Precomputed read model, atomic Lua script, idempotency key with lease*
 
 - **Feed storage in sorted sets:** Entries are ordered by post time, and the 1,000-entry limit bounds the size of each feed.
 - **Atomic feed insertion:** The feed entry, both reverse indexes and the trim are applied in a single Lua script; therefore an insertion is never left partially applied.
@@ -257,8 +257,8 @@ Responsible for storing precomputed feeds and short-lived keys for idempotency a
 
 ### **MongoDB**
 
-Responsible for posts, likes, comments and the post-service outbox.<br>
-*Patterns: document model, multi-document transactions, TTL-based deduplication*
+**Responsible for:** Posts, likes, comments and the post-service outbox.<br>
+**Patterns:** *Document model, multi-document transactions, TTL-based deduplication*
 
 - **Rationale for a document database:** New post types (galleries, polls, link previews) can introduce their own fields without schema migrations, and posts, as the fastest-growing data set, can be sharded by author.
 - **Replica set deployment for transactions:** Multi-document transactions require a replica set; likes, comments and posts are committed together with their outbox events.
@@ -267,7 +267,7 @@ Responsible for posts, likes, comments and the post-service outbox.<br>
 ### **PostgreSQL**
 
 Two separate instances: `social_db` holds users, the follow graph, refresh tokens and the user-service outbox; `notification_db` holds the notifications of notification-service.<br>
-*Patterns: relational integrity, Transactional Outbox, unique-index deduplication, reactive access (R2DBC)*
+**Patterns:** *Relational integrity, Transactional Outbox, unique-index deduplication, reactive access (R2DBC)*
 
 - **Rationale for a relational database:** Unique constraints on usernames and emails, a composite primary key for follows and cascading foreign keys guarantee the consistency of the follow graph.
 - **Refresh token family management:** Tokens are stored as hashes grouped by family, and expired tokens are purged on a daily schedule.
@@ -275,9 +275,9 @@ Two separate instances: `social_db` holds users, the follow graph, refresh token
 
 ### **Frontend · `:4200`**
 
-Responsible for the user interface as an Angular single-page application, including registration, sign-in with Google, the home feed, the people list, profiles, settings and a real-time notification panel.<br>
-*Patterns: Signals for state management, functional interceptor and guards, reconnect with exponential backoff*<br>
-*Key dependencies: Angular Router, Angular Forms, RxJS*
+**Responsible for:** The user interface as an Angular single-page application, including registration, sign-in with Google, the home feed, the people list, profiles, settings and a real-time notification panel.<br>
+**Patterns:** *Signals for state management, functional interceptor and guards, reconnect with exponential backoff*<br>
+**Key dependencies:** *Angular Router, Angular Forms, RxJS*
 
 - **Transparent token refresh:** An interceptor attaches the JWT to each request and, on `401`, refreshes the token and retries the request.
 - **Resilient real-time updates:** When the SSE connection is lost, the client obtains a new ticket and reconnects with exponential backoff.
