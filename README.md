@@ -100,7 +100,7 @@ Configuration is supplied through environment variables in `docker-compose.yml`,
 
 ## **Architecture**
 
-<a href="https://raw.githubusercontent.com/ksavas/SocialMedia/main/docs/architecture.svg"><img src="docs/architecture.svg" width="100%" alt="Architecture"></a>
+<a href="docs/architecture.png"><img src="docs/architecture.png" width="100%" alt="Architecture"></a>
 
 - **Single entry point:** The Angular application reaches every service through the API gateway.
 - **Microservices:** Four services, each with its own database; user-service and feed-service share the Redis instance but use separate keys.
@@ -134,7 +134,7 @@ The gateway was added only for routing and is outside the main scope of the proj
 <details>
 <summary style="cursor:pointer"><b>Google Sign-In flow</b></summary>
 
-<a href="https://raw.githubusercontent.com/ksavas/SocialMedia/main/docs/flow-google-sign-in.svg"><img src="docs/flow-google-sign-in.svg" width="760" alt="Google Sign-In flow"></a>
+<a href="docs/flow-google-sign-in.png"><img src="docs/flow-google-sign-in.png" width="760" alt="Google Sign-In flow"></a>
 
 </details>
 
@@ -151,7 +151,7 @@ The gateway was added only for routing and is outside the main scope of the proj
 <details>
 <summary style="cursor:pointer"><b>Like flow</b></summary>
 
-<a href="https://raw.githubusercontent.com/ksavas/SocialMedia/main/docs/flow-like-post.svg"><img src="docs/flow-like-post.svg" width="760" alt="Like flow"></a>
+<a href="docs/flow-like-post.png"><img src="docs/flow-like-post.png" width="760" alt="Like flow"></a>
 
 </details>
 
@@ -171,11 +171,11 @@ The gateway was added only for routing and is outside the main scope of the proj
 
 **Post creation**
 
-<a href="https://raw.githubusercontent.com/ksavas/SocialMedia/main/docs/flow-create-post.svg"><img src="docs/flow-create-post.svg" width="760" alt="Post creation flow"></a>
+<a href="docs/flow-create-post.png"><img src="docs/flow-create-post.png" width="760" alt="Post creation flow"></a>
 
 **Feed read**
 
-<a href="https://raw.githubusercontent.com/ksavas/SocialMedia/main/docs/flow-read-feed.svg"><img src="docs/flow-read-feed.svg" width="760" alt="Feed read flow"></a>
+<a href="docs/flow-read-feed.png"><img src="docs/flow-read-feed.png" width="760" alt="Feed read flow"></a>
 
 </details>
 
@@ -229,7 +229,7 @@ The gateway was added only for routing and is outside the main scope of the proj
 <details>
 <summary style="cursor:pointer"><b>Delivery and retry flow</b></summary>
 
-<a href="https://raw.githubusercontent.com/ksavas/SocialMedia/main/docs/reliability.svg"><img src="docs/reliability.svg" width="760" alt="Reliability"></a>
+<a href="docs/reliability.png"><img src="docs/reliability.png" width="760" alt="Reliability"></a>
 
 </details>
 
