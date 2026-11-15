@@ -27,7 +27,7 @@ const MAX_RECONNECT_DELAY_MS = 30000;
 @Injectable({ providedIn: 'root' })
 export class NotificationService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = `${environment.api.notification}/api/notifications`;
+  private readonly baseUrl = `${environment.apiUrl}/api/notifications`;
 
   readonly notifications = signal<NotificationItem[]>([]);
   readonly unreadCount = signal<number>(0);

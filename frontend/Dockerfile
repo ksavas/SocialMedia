@@ -5,6 +5,8 @@ RUN npm ci
 COPY . .
 ARG GOOGLE_CLIENT_ID=not-configured
 ENV GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
+ARG API_GATEWAY_URL=http://localhost:8080
+ENV API_GATEWAY_URL=$API_GATEWAY_URL
 RUN npm run build
 
 FROM nginx:1.27-alpine

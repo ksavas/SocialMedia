@@ -13,7 +13,7 @@ const PENDING_STATE_KEY = 'oauth_pending_state';
 @Injectable({ providedIn: 'root' })
 export class OAuthProviderService {
   private readonly http = inject(HttpClient);
-  private readonly initUrl = `${environment.api.user}/api/auth/oauth/init`;
+  private readonly initUrl = `${environment.apiUrl}/api/auth/oauth/init`;
 
   loginWithGoogle(): Observable<void> {
     return this.http.get<OAuthInitResponse>(this.initUrl).pipe(

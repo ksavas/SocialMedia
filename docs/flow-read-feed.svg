@@ -6,7 +6,8 @@
   <rect x="0" y="0" width="1040" height="568" rx="12" fill="#ffffff"/>
   <path d="M104,66 V492" stroke="#CBD5E1" stroke-width="1.5" stroke-dasharray="4 4" fill="none"/>
   <rect x="19" y="20" width="170" height="46" rx="8" fill="#F1F5F9" stroke="#475569" stroke-width="1.5"/>
-  <text x="104" y="48" font-size="13" font-weight="600" text-anchor="middle" fill="#0F172A">Angular SPA</text>
+  <text x="104" y="40" font-size="13" font-weight="600" text-anchor="middle" fill="#0F172A">Angular SPA</text>
+  <text x="104" y="56" font-size="10.5" text-anchor="middle" fill="#475569">via gateway :8080</text>
   <path d="M312,66 V492" stroke="#CBD5E1" stroke-width="1.5" stroke-dasharray="4 4" fill="none"/>
   <rect x="227" y="20" width="170" height="46" rx="8" fill="#EEF2FF" stroke="#6366F1" stroke-width="1.5"/>
   <text x="312" y="40" font-size="13" font-weight="600" text-anchor="middle" fill="#1E1B4B">feed-service</text>

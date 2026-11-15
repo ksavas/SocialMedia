@@ -1,0 +1,16 @@
+services:
+  user-service:
+    ports:
+      - "8081:8081"
+
+  post-service:
+    ports:
+      - "8082:8082"
+
+  feed-service:
+    ports:
+      - "8084:8084"
+
+  notification-service:
+    ports:
+      - "8085:8085"

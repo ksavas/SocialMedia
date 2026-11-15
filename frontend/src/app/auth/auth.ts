@@ -42,8 +42,8 @@ export interface UserProfile {
   providedIn: 'root',
 })
 export class AuthService {
-  private readonly authUrl = `${environment.api.user}/api/auth`;
-  private readonly usersUrl = `${environment.api.user}/api/users`;
+  private readonly authUrl = `${environment.apiUrl}/api/auth`;
+  private readonly usersUrl = `${environment.apiUrl}/api/users`;
 
   constructor(private http: HttpClient) {}
 
@@ -118,8 +118,8 @@ export interface CommentResponse {
 
 @Injectable({ providedIn: 'root' })
 export class PostApiService {
-  private readonly postsUrl = `${environment.api.post}/api/posts`;
-  private readonly feedUrl = `${environment.api.feed}/api/feed`;
+  private readonly postsUrl = `${environment.apiUrl}/api/posts`;
+  private readonly feedUrl = `${environment.apiUrl}/api/feed`;
 
   constructor(private http: HttpClient) {}
 
