@@ -1,292 +1,312 @@
-# Social Feed Platform
+# **Social Media Platform**
 
-A social media backend designed the way real social networks are designed: users sign up (locally or with Google), follow each other, post, like and comment, and get a personalized home feed plus real-time notifications.
+A social network developed as a system design project, consisting of four Spring Boot microservices behind an API gateway, Kafka, PostgreSQL, MongoDB, Redis and an Angular frontend. Users can register locally or with Google, follow other users, publish posts, like and comment, and receive a personalized home feed with real-time notifications.
 
-It is built as four Spring Boot microservices and an Angular frontend, communicating asynchronously through Apache Kafka and synchronously over REST, with each service using the data store that fits its access pattern. The focus is on the system design behind a feed: read-heavy optimization, reliable event delivery, idempotency, contention handling and failure recovery, all verified against the running system.
+The project focuses on the architecture behind the feed rather than on product features: a read-optimized feed precomputed in Redis, a hybrid fan-out model (fan-out on write for regular accounts, fan-out on read for accounts with a large number of followers), reliable event delivery through the Transactional Outbox pattern, idempotent consumers, hot-key contention, and the behavior of the system when one of its components fails.
 
-```bash
-docker compose up --build
-```
-
-Open `http://localhost:4200` and sign in as `test1` … `test10` (password `test`).
-
-## What this project demonstrates
-
-| Area | Highlights |
+| Area | Technology |
 |---|---|
-| **System design** | Fan-out-on-write feed for a read-heavy workload, bounded precomputed feeds in Redis, hot-key contention removed with asynchronous counters, eventual consistency where it is acceptable, polyglot persistence |
-| **Distributed systems reliability** | Transactional Outbox with broker acknowledgement, at-least-once delivery with idempotent consumers, exponential-backoff retries, Dead Letter Queues, retry of transient MongoDB transaction errors |
-| **Backend engineering** | Java 25, Spring Boot 4 (Spring MVC, WebFlux, Security, Data JPA / MongoDB / Redis / R2DBC, Kafka), Strategy pattern for login and OAuth providers |
-| **Data** | PostgreSQL, MongoDB replica set with multi-document transactions and TTL indexes, Redis sorted sets, reactive database access with R2DBC |
-| **Security** | Stateless JWT authentication across services, Google OpenID Connect with server-issued single-use `state` + `nonce`, BCrypt |
-| **Real-time** | Server-Sent Events from a reactive notification service |
-| **Frontend** | Angular 21 with Signals, standalone components, functional guards and interceptors |
-| **Delivery** | Multi-stage Dockerfiles, one-command Docker Compose setup with health-checked startup ordering |
-| **Testing** | Test-driven backend development with JUnit 5 + Mockito (135 tests) |
+| **Backend** | Java 25, Spring Boot 4 (MVC, WebFlux, Security, Data JPA / MongoDB / Redis / R2DBC, Kafka), Spring Cloud Gateway |
+| **Architecture** | Microservices, event-driven communication over Kafka |
+| **Data stores** | PostgreSQL, MongoDB (replica set), Redis |
+| **Frontend** | Angular 21, TypeScript, HTML/SCSS |
+| **Tests** | JUnit 6 + Mockito |
 
-## Architecture
+## **Screenshots**
 
-![Architecture](docs/architecture.svg)
+<table>
+  <tr>
+    <td align="center"><sub>Sign in (local account or Google)</sub></td>
+    <td align="center"><sub>Home feed</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><a href="docs/screenshots/login.png"><img src="docs/screenshots/login.png" alt="Sign in" width="480"></a></td>
+    <td width="50%"><a href="docs/screenshots/feed.png"><img src="docs/screenshots/feed.png" alt="Home feed" width="480"></a></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Real-time notifications over SSE</sub></td>
+    <td align="center"><sub>People and follow graph</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><a href="docs/screenshots/notifications.png"><img src="docs/screenshots/notifications.png" alt="Live notifications" width="480"></a></td>
+    <td width="50%"><a href="docs/screenshots/people.png"><img src="docs/screenshots/people.png" alt="People" width="480"></a></td>
+  </tr>
+</table>
 
-feed-service also calls internal REST endpoints synchronously: user-service for follower IDs during fan-out, and post-service for an author's latest posts on follow and for post batches when a feed is read. These calls are shown in the flows below.
+## **Requirements and scale**
 
-| Service | Responsibility | Storage |
+### **Current state**
+
+The system is deployed on a single host with Docker Compose, running one instance per service, two PostgreSQL instances, a single Kafka broker, a single-node MongoDB replica set and a single Redis node.
+
+The architecture targets 1M daily active users, while the current implementation is sized for 100K. The changes required to reach the target are listed under [Known gaps for 1M DAU](#known-gaps-for-1m-dau).
+
+All features operate end to end, and the failure scenarios described below were executed against this environment. The system has not been load-tested; therefore all figures in this section are estimates rather than measurements.
+
+### **Non-functional requirements**
+
+| Requirement | Target | Approach |
 |---|---|---|
-| **user-service** | Registration, local and OAuth login, JWT issuance, profiles, follow graph | PostgreSQL, Redis |
-| **post-service** | Posts, likes, comments, like/comment counters | MongoDB |
-| **feed-service** | Builds and serves each user's home feed | Redis |
-| **notification-service** | Stores notifications and pushes them live over SSE | PostgreSQL (R2DBC) |
+| Feed read latency | p99 < 200 ms | Feeds are precomputed with fan-out on write; fan-out on read is limited to high-follower accounts |
+| Write latency | p99 < 300 ms | Requests commit only the change and its outbox event; downstream processing is asynchronous |
+| Availability | 99.99 % | Circuit breakers isolate failing dependencies; feed reads degrade gracefully and writes continue during a Kafka outage |
+| Scalability | Horizontal scaling of the request path | Stateless JWT authentication and bounded feeds; SSE delivery and outbox polling do not scale horizontally yet (see [Known gaps](#known-gaps-for-1m-dau)) |
 
-Each service owns its data; no service reads another service's tables. Data is shared through Kafka events or internal REST endpoints. Identity travels inside the JWT, so services hold no HTTP session state.
+### **Back-of-the-envelope estimation**
 
-## Key design decisions
+**Assumptions:** 10 reads and 2 writes per user per day, of which 0.5 are posts; 200 followers per user, 86,400 s per day, peak = 3 × average.
 
-### 1. Read-heavy feed: fan-out on write
-
-A post is written once but read many times by every follower. The cost is therefore paid at write time:
-
-- When a post is created, feed-service pushes its ID into the feed of the author and of every follower. Reading the home feed is one Redis sorted-set range query, not a "collect posts from everyone I follow and sort" query.
-- Each feed is a Redis sorted set scored by the post's creation time and trimmed to the newest 1,000 entries, so reading a page costs O(log N + page size) with N capped.
-- Feeds store only post IDs. Content, counters and "liked by me" are loaded from post-service in a single batch request that preserves the feed order, so counts are current at read time instead of being copied into every feed.
-- On follow, the followed user's latest 50 posts are backfilled into the follower's feed; on unfollow they are removed. Helper sets (`author_posts_in_feed:*`, `post_feeds:*`) make unfollow and post deletion targeted instead of scanning feeds.
-- The fan-out runs in a Kafka consumer, so creating a post returns as soon as it is stored.
-
-### 2. Reliable events: Transactional Outbox
-
-Writing to the database and publishing to Kafka are two separate systems; doing both in a request can leave one without the other (the dual-write problem). Instead:
-
-- user-service (JPA) and post-service (MongoDB multi-document transaction) write the business change and an `outbox_events` record **in the same transaction**.
-- A poller sends pending events to Kafka and marks them `PROCESSED` **only after the broker acknowledges** the write. If Kafka is unavailable, events stay `PENDING` and are delivered once it is back, in order.
-- Each event carries its outbox ID as an `eventId` Kafka header, which consumers use for deduplication.
-
-### 3. At-least-once delivery with idempotent consumers
-
-The outbox guarantees *at-least-once* delivery: after a crash or a retry the same event can arrive twice. Every consumer is therefore idempotent:
-
-| Consumer | Mechanism |
-|---|---|
-| post-service counters | Inserts the `eventId` into a `processed_events` collection (unique `_id`, TTL 7 days) in the same transaction as the counter update; a duplicate insert aborts the update |
-| notification-service | `event_id` column with a unique index; a duplicate insert is treated as "already processed" and nothing is pushed |
-| feed-service | Records processed `eventId`s in Redis (7-day TTL) and skips known events; the Redis feed operations themselves (`ZADD`, `SADD`, `ZREM`) are also naturally idempotent |
-
-### 4. Hot-key contention: asynchronous counters
-
-A like originally ran in one transaction that inserted the like and incremented `likeCount` on the post document. Under load test, 10 concurrent likes on the same post produced MongoDB write conflicts and only 1 of 10 succeeded: every transaction was competing for the same *hot document*.
-
-The fix removes the contention instead of retrying around it:
-
-- The like transaction now only inserts the like and an outbox event. These are new documents, so concurrent likes no longer conflict.
-- A dedicated consumer in post-service applies `post.liked`, `post.unliked` and `comment.created` events to the counters with atomic `$inc`. Events are keyed by post ID, so all events of one post land on the same Kafka partition and are applied sequentially.
-- Counters become eventually consistent, typically within milliseconds; the frontend already updates the count optimistically.
-
-After the change, the same test accepts all 10 concurrent likes and the counter converges to exactly 10.
-
-### 5. Transient transaction errors are retried
-
-MongoDB recommends retrying a transaction that fails with the `TransientTransactionError` label (write conflicts, primary failover, network blips). Spring's `@Transactional` does not do this, so post-service runs its writes through a small `TransactionRunner` that retries only errors with this label, up to 5 attempts with jittered exponential backoff. Non-transient errors such as duplicate keys fail immediately.
-
-### 6. Consumer retries and Dead Letter Queues
-
-- Failed records are retried 4 times with exponential backoff (1 s, 2 s, 4 s, 8 s).
-- Malformed messages (JSON parsing errors) are classified as non-retryable and go straight to the DLQ, since retrying cannot fix them.
-- Records that still fail are published to `<topic>.DLQ` by `DeadLetterPublishingRecoverer`. feed-service also has a `DlqConsumer` for its own DLQ topics, with a separate consumer group and error handler so a failing DLQ record cannot loop back into a DLQ.
-
-Decisions 2, 3 and 6 together form the event delivery path:
-
-![Event delivery and failure handling](docs/reliability.svg)
-
-### 7. Polyglot persistence and why posts use MongoDB
-
-PostgreSQL holds relational data with strong integrity needs (users, the follow graph). Redis holds feeds and short-lived OAuth state. Posts live in MongoDB.
-
-Today's post model (text, author, counters, timestamps) could be stored in a relational database without any problem. MongoDB was chosen for where the post model is heading:
-
-- **Heterogeneous post types.** Planned post types carry very different data: image galleries and videos (each with their own media metadata such as dimensions, duration and thumbnails), polls (options and votes), link shares (URL preview data), and reposts/quote posts (an embedded reference to another post). In SQL this becomes either one wide table full of nullable columns or a growing set of join tables; in a document store each post carries the fields of its own type.
-- **Schema evolution without migrations.** New post types and fields (hashtags, mentions, location, edit history, reaction types) can be introduced gradually; old and new documents live side by side.
-- **Read-together data stays together.** A post and what is needed to render it can be read as a single document, which fits the read-heavy feed.
-- **Horizontal scaling.** Posts are the fastest-growing dataset; MongoDB's native sharding (for example by `authorId`) offers a direct path to scale.
-
-MongoDB runs as a single-node replica set, which is what enables multi-document transactions for the outbox.
-
-### 8. Reactive notifications over SSE
-
-notification-service is built on Spring WebFlux and R2DBC, so holding many long-lived SSE connections does not tie up a thread per connection. Each connected user has an in-memory Reactor sink shared by all of their open tabs; it is released only when the last tab disconnects. Kafka events are consumed with a Spring Kafka listener that waits for the reactive save to complete, so failures are retried and dead-lettered instead of being lost.
-
-### 9. Authentication
-
-- user-service signs JWTs (HS256, 24 h) containing the username and `userId`; the other services verify the signature and expiry on their own, without calling user-service.
-- Login uses the **Strategy pattern**: `AuthService` picks a `LoginStrategy` (`LocalLoginStrategy`, `OAuthLoginStrategy`) by provider, and OAuth providers are separate `OAuthTokenVerifier` implementations (Google, Microsoft). Adding a provider means adding one class.
-- **Google Sign-In** (OpenID Connect):
-  - user-service issues a random `state` and `nonce`, stored in Redis for 5 minutes and consumed on first use.
-  - The browser keeps the `state` in `sessionStorage` and rejects a callback whose `state` it did not start, which protects against login CSRF.
-  - The ID token's signature, expiry and audience are verified server-side, its `nonce` must match, and Google accounts must have a verified email.
-  - An OAuth login cannot take over an email already registered with a different method. OAuth users get a BCrypt-hashed random password, so password login stays impossible until they set one.
-
-![Google Sign-In flow](docs/flow-google-sign-in.svg)
-
-### 10. Time handling
-
-All timestamps are `Instant` (UTC) end to end, serialized as ISO-8601 with `Z`. Feed scores use the post's creation time carried in the event, so posts backfilled on follow and posts fanned out live are ordered on the same clock regardless of server time zones.
-
-## Service communication
-
-| Topic | Producer | Consumers | Payload |
+| Metric | Calculation | Target: 1M DAU | Current: 100K DAU |
 |---|---|---|---|
-| `user.followed` | user-service | feed-service, notification-service | `followerId`, `followingId` |
-| `user.unfollowed` | user-service | feed-service | `followerId`, `followingId` |
-| `post.created` | post-service | feed-service | `postId`, `authorId`, `createdAt` |
-| `post.deleted` | post-service | feed-service | `postId`, `authorId` |
-| `post.liked` | post-service | post-service (counters), notification-service | `postId`, `userId`, `authorId` |
-| `post.unliked` | post-service | post-service (counters) | `postId`, `userId`, `authorId` |
-| `comment.created` | post-service | post-service (counters), notification-service | `commentId`, `postId`, `authorId`, `postAuthorId` |
-| `feed.updated` | feed-service | notification-service | `userId`, `postId` |
-| `<topic>.DLQ` | consumer error handlers | feed-service `DlqConsumer` (feed topics); others are inspected in Kafka UI | original record |
+| Read QPS | DAU × 10 / 86,400 s | 116 (peak 347) | 12 (peak 35) |
+| Write QPS | DAU × 2 / 86,400 s | 23 (peak 69) | 2 (peak 7) |
+| Read/write ratio | 10 reads : 2 writes per user | 5 : 1 | 5 : 1 |
+| Fan-out writes | DAU × 0.5 × 200 / 86,400 s | 1,157/s (peak 3,472/s) | 116/s (peak 347/s) |
 
-Outbox events are keyed by aggregate ID (follower ID for follow events, post ID for post and like events, comment ID for comment events), so related events keep their order within a partition. Synchronous calls go through internal REST endpoints under `/api/internal/**` (follower IDs, post batches).
+**Note:** The current project runs in a local Docker Compose environment; therefore, its actual capacity does not meet the target.
 
-### Creating a post
+## **Running locally**
 
-![Creating a post](docs/flow-create-post.svg)
-
-### Liking a post
-
-![Liking a post](docs/flow-like-post.svg)
-
-### Reading the feed
-
-![Reading the feed](docs/flow-read-feed.svg)
-
-## Services in detail
-
-### user-service (`:8081`)
-
-Spring Web, Spring Data JPA, Spring Security, Spring Data Redis, Spring Kafka, Bean Validation, JJWT, `google-api-client`, Nimbus JWT decoder (Microsoft).
-
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/auth/register` | Register a local user, returns a JWT |
-| `GET` | `/api/auth/oauth/init` | Create OAuth `state` + `nonce` |
-| `POST` | `/api/auth/login` | Login with `LOCAL`, `GOOGLE` or `MICROSOFT` |
-| `PATCH` | `/api/users/me` | Update username, password (and email for local users); returns a new JWT |
-| `GET` | `/api/users` | Other users with "following" flags |
-| `GET` | `/api/users/{id}` | Profile with follower/following counts |
-| `POST` / `DELETE` | `/api/users/{id}/follow` | Follow / unfollow |
-| `GET` | `/api/internal/users/{id}/follower-ids` | Internal: follower IDs for fan-out |
-
-### post-service (`:8082`)
-
-Spring Web, Spring Data MongoDB, Spring Security, Spring Kafka, Bean Validation, JJWT. Indexes are created from the document mappings: unique `postId + userId` on likes, `authorId + createdAt` and `createdAt` on posts, `postId` on comments, `status` on outbox events, TTL on processed events.
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` / `POST` | `/api/posts` | List all posts, newest first / create a post |
-| `GET` / `DELETE` | `/api/posts/{id}` | Get / delete (author only) |
-| `POST` / `DELETE` | `/api/posts/{id}/like` | Like / unlike |
-| `GET` / `POST` | `/api/posts/{id}/comments` | List / add comments |
-| `GET` | `/api/internal/posts/by-author/{authorId}` | Internal: latest post summaries of an author |
-| `POST` | `/api/internal/posts/batch` | Internal: posts by IDs in the requested order |
-
-### feed-service (`:8084`)
-
-Spring Web, Spring Data Redis, Spring Kafka, Spring Security, JJWT, `RestClient`.
-
-| Redis key | Type | Purpose |
-|---|---|---|
-| `feed:{userId}` | Sorted Set | The feed, scored by post creation time, newest 1,000 entries |
-| `author_posts_in_feed:{userId}:{authorId}` | Set | Posts of an author in a user's feed, removed on unfollow |
-| `post_feeds:{postId}` | Set | Feeds containing a post, cleaned on post deletion |
-| `processed_event:feed-service:{eventId}` | String (TTL) | Idempotency marker |
-
-API: `GET /api/feed?page={page}&size={size}`.
-
-### notification-service (`:8085`)
-
-Spring WebFlux, Spring Data R2DBC, `r2dbc-postgresql`, Spring Security (WebFlux), Spring Kafka, Project Reactor, JJWT. Notification types: `FOLLOWED`, `POST_LIKED`, `COMMENT_CREATED` (stored) and `NEW_POST` (pushed live only).
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/notifications/stream?token={jwt}` | SSE stream (the browser's `EventSource` cannot send headers) |
-| `GET` | `/api/notifications` | Notification history, newest first |
-| `PUT` | `/api/notifications/{id}/read` | Mark as read |
-
-### Frontend (`:4200`)
-
-Angular 21 single-page application: combined register / sign-in page with "Continue with Google", home feed (compose, like, delete own posts, "new posts" banner), people list, profiles with follow/unfollow, settings and a live notification panel. State is managed with Signals; a functional interceptor attaches the JWT and functional guards protect routes.
-
-## Verified behavior
-
-Besides the unit tests, the following scenarios were run against the full Docker Compose stack:
-
-| Scenario | Result |
-|---|---|
-| Posts backfilled on follow and posts fanned out afterwards | Feed returned newest first across both |
-| 10 users liking the same post concurrently | All 10 accepted, counter converged to exactly 10 |
-| One user sending 10 concurrent likes | One `204`, nine `409`; counter not double-counted |
-| The same `post.liked` event redelivered with its `eventId` | Consumed by both consumer groups, counter and notification count unchanged |
-| The same `post.created` event redelivered | No duplicate `feed.updated`; the same message without `eventId` did produce one, confirming the check is what blocks it |
-| Malformed JSON published to `post.liked` | Reached `post.liked.DLQ` without retries |
-| Follow and post created while Kafka was stopped | API kept responding; events stayed `PENDING` and were delivered after Kafka restarted |
-| Two SSE connections for one user, one closed | The remaining connection kept receiving notifications |
-| OAuth callback with a `state` the browser did not start | Rejected without calling the backend |
-
-## Getting started
-
-### With Docker (recommended)
-
-Requirements: Docker.
+Prerequisites: Docker Engine with Docker Compose v2 (e.g. Docker Desktop for local environments).
 
 ```bash
-docker compose up --build
+docker compose up -d --build
 ```
 
-| URL | What |
+The frontend is served at `http://localhost:4200`. The seeded accounts `test1` … `test4` use the password `test`; on first start, a one-off `seed` container adds follows and sample posts through the public APIs.
+
+| URL | Service |
 |---|---|
-| `http://localhost:4200` | Frontend (sign in as `test1` … `test10`, password `test`) |
+| `http://localhost:4200` | Frontend |
+| `http://localhost:8080` | API gateway |
+| `http://localhost:8081` · `8082` · `8084` · `8085` | user · post · feed · notification service (direct access, see below) |
 | `http://localhost:8090` | Kafka UI |
 | `http://localhost:8091` | Mongo Express |
 | `http://localhost:8092` | Adminer (PostgreSQL) |
 | `http://localhost:5540` | Redis Insight |
 
-Google Sign-In is optional. To enable it, create an OAuth 2.0 Client ID (Web application) with `http://localhost:4200/auth/callback` as an authorized redirect URI and start with:
+Configuration is supplied through environment variables in `docker-compose.yml`, with local defaults in each service's `application.properties` (`JWT_SECRET`, `CELEBRITY_FOLLOWER_THRESHOLD`, the gateway's `CORS_ALLOWED_ORIGINS`, …).
 
-```bash
-GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com docker compose up --build
-```
+<details>
+<summary style="cursor:pointer"><b>Configuration options and tests</b></summary>
 
-### Running services locally
+- **Custom frontend port:** add `FRONTEND_PORT=4300` to a `.env` file in the project root. The gateway accepts browser requests only from the frontend's origin, and `CORS_ALLOWED_ORIGINS` follows `FRONTEND_PORT`. Alternatively, `./scripts/start.sh` (Bash) picks `4200`, or `4300` if 4200 is in use.
+- **Direct service ports:** `docker-compose.override.yml` publishes the service ports for local debugging and is loaded by default; add `COMPOSE_FILE=docker-compose.yml` to the `.env` file to expose only the gateway and the frontend.
+- **Custom gateway port:** add `GATEWAY_PORT=8000` to the `.env` file; the frontend is built against the gateway URL, so restart with `--build`.
+- **Google Sign-In (optional):** Create an OAuth 2.0 Web client with `http://localhost:4200/auth/callback` (and `http://localhost:4300/auth/callback`) as redirect URIs, then add `GOOGLE_CLIENT_ID=…` to a `.env` file in the project root before starting the system.
+- **Test execution:** Run `mvn test` in each service directory. The user-service context test requires PostgreSQL (`docker compose up -d postgres`).
 
-Requirements: Java 25, Maven, Node.js. Start the infrastructure only, then each service in its own terminal:
+</details>
 
-```bash
-docker compose up -d zookeeper kafka postgres mongodb redis
-cd user-service && mvn spring-boot:run
-cd post-service && mvn spring-boot:run
-cd feed-service && mvn spring-boot:run
-cd notification-service && mvn spring-boot:run
-cd frontend && npm install && npm start
-```
+## **Architecture**
 
-Configuration is read from environment variables with local defaults (`DB_URL`, `MONGO_HOST`, `REDIS_HOST`, `KAFKA_BOOTSTRAP_SERVERS`, `JWT_SECRET`, `GOOGLE_CLIENT_ID`, ...). The defaults are for local development only.
+<a href="docs/architecture.svg"><img src="docs/architecture.svg" width="760" alt="Architecture"></a>
 
-### Tests
+- **Single entry point:** The Angular application reaches every service through the API gateway.
+- **Microservices:** Four services, each with its own database; user-service and feed-service share the Redis instance but use separate keys.
+- **Asynchronous integration:** State changes are propagated as Kafka events published through the Transactional Outbox pattern.
+- **Synchronous integration:** feed-service retrieves data from user-service and post-service through internal REST endpoints.
+- **Stateless authentication:** Each service validates the JWT independently; the services don't maintain HTTP sessions, therefore services can be scaled horizontally.
 
-```bash
-cd <service-directory>
-mvn test
-```
+### **gateway-service · `:8080`**
 
-The user-service controller tests start the full Spring context and need PostgreSQL running (for example via `docker compose up -d postgres`).
+Responsible for routing browser requests to the services; it is the only backend address the frontend uses.<br>
+The gateway was added only for routing and is outside the main scope of the project, which focuses on the feed architecture. Rate limiting and SSL termination are not implemented and are left as future work.<br>
+*Patterns: API Gateway*<br>
+*Key dependencies: Spring Cloud Gateway (WebFlux), Spring Boot Actuator*
 
-## Trade-offs and next steps
+- **Path-based routing:** `/api/auth/**` and `/api/users/**` are routed to user-service, `/api/posts/**` to post-service, `/api/feed/**` to feed-service and `/api/notifications/**` to notification-service; target addresses come from configuration.
+- **Streaming pass-through:** The reactive gateway forwards the SSE notification stream without buffering.
+- **Health check:** Spring Boot Actuator exposes `/actuator/health`, which Docker Compose uses as the container health check.
+- **Future work:** Rate limiting (a Redis token bucket keyed by user, after adding JWT validation at the gateway) and SSL termination (all traffic is plain HTTP locally).
 
-Deliberate simplifications for the current scale, and what would change at a larger one:
+### **user-service · `:8081`**
 
-- **No API gateway yet.** The SPA calls services directly and `/api/internal/**` endpoints are not authenticated; a gateway (planned for cloud deployment) would expose only public routes.
-- **SSE sinks are in memory**, so notification-service runs as a single instance; scaling out would fan notifications across instances with Redis Pub/Sub.
-- **Pure fan-out on write.** Accounts with very large follower counts would need a hybrid model (pull their posts at read time).
-- **Single-instance outbox pollers.** Running several instances would need poller coordination (e.g. a lock or `SELECT … FOR UPDATE SKIP LOCKED`); duplicates are already absorbed by idempotent consumers.
-- **`feed.updated` is published directly** rather than through an outbox, since it only drives a transient "new posts" banner.
-- **DLQ messages are logged, not replayed** automatically.
-- **Denormalized author username** in posts and comments is not updated when a user renames; deleting a post does not remove its likes and comments.
-- **Comments** are supported by the API but not yet shown in the UI; `GET /api/posts` is not paginated (the UI uses the paginated feed).
-- **Feed trimming** keeps feeds at 1,000 entries but does not clean the related helper sets.
+Responsible for registration, local and Google authentication, token management, user profiles and the follow graph.<br>
+*Patterns: Strategy, Transactional Outbox, refresh token rotation*<br>
+*Key dependencies: Spring MVC, Spring Data JPA, Spring Security, Spring Data Redis, Spring Kafka, JJWT, Google API Client*
+
+- **Authentication through the Strategy pattern:** Local and OAuth sign-in are separate strategies, and each OAuth provider is a separate token verifier. A Microsoft verifier has been added on the server, but Microsoft sign-in is not implemented: the frontend offers only Google, and Microsoft client ID is not configured.
+- **Short-lived access tokens and rotated refresh tokens:** Access tokens expire after 15 minutes. Refresh tokens are delivered in an `HttpOnly` cookie, stored only as hashes and rotated on every use; reuse of a previous token revokes the entire token family.
+- **Google Sign-In (OpenID Connect):** Single-use `state` and `nonce` values are stored in Redis, and the ID token is validated server-side.
+- **Atomic follow operation:** The follow record, the follower counter and the outbox event are committed in a single transaction.
+
+<details>
+<summary style="cursor:pointer"><b>Google Sign-In flow</b></summary>
+
+<a href="docs/flow-google-sign-in.svg"><img src="docs/flow-google-sign-in.svg" width="760" alt="Google Sign-In flow"></a>
+
+</details>
+
+### **post-service · `:8082`**
+
+Responsible for posts, likes, comments and their counters.<br>
+*Patterns: Transactional Outbox, asynchronous counters, idempotent consumer, retry with jittered backoff*<br>
+*Key dependencies: Spring MVC, Spring Data MongoDB, Spring Security, Spring Kafka, JJWT*
+
+- **Elimination of hot-key contention:** Updating the like counter within the like transaction caused 9 of 10 concurrent likes to fail with write conflicts. To resolve this, counters are updated asynchronously by a dedicated consumer; all concurrent likes succeed and the counter converges to the correct value.
+- **Idempotent counter updates:** Each processed event is recorded in the same transaction as the counter update; therefore redelivered events don't have any effect.
+- **Retry of transient transaction errors:** Transient MongoDB transaction errors are retried with jittered exponential backoff; other errors fail immediately.
+
+<details>
+<summary style="cursor:pointer"><b>Like flow</b></summary>
+
+<a href="docs/flow-like-post.svg"><img src="docs/flow-like-post.svg" width="760" alt="Like flow"></a>
+
+</details>
+
+### **feed-service · `:8084`**
+
+Responsible for building and serving each user's home feed.<br>
+*Patterns: fan-out on write, fan-out on read (hybrid feed), circuit breaker, graceful degradation, idempotent consumer*<br>
+*Key dependencies: Spring MVC (RestClient), Spring Data Redis (Lettuce), Spring Security, Spring Kafka, Resilience4j, JJWT*
+
+- **Fan-out on write:** When a post is created, its ID is added to the feeds of the author and all followers in Redis.
+- **Fan-out on read for high-follower accounts:** Posts from authors with at least a configurable number of followers (default 10,000) are not distributed; they are merged into the feed at read time.
+- **Feeds store post IDs only:** Post content and counters are retrieved from post-service at read time, which keeps counters current.
+- **Dependency isolation through circuit breakers:** feed-service wraps its REST calls to user-service and post-service in two separate Resilience4j circuit breakers. If user-service is unavailable, the feed is served from precomputed entries only; if post-service or Redis is unavailable, the service responds with `503`.
+
+<details>
+<summary style="cursor:pointer"><b>Post creation and feed read flows</b></summary>
+
+**Post creation**
+
+<a href="docs/flow-create-post.svg"><img src="docs/flow-create-post.svg" width="760" alt="Post creation flow"></a>
+
+**Feed read**
+
+<a href="docs/flow-read-feed.svg"><img src="docs/flow-read-feed.svg" width="760" alt="Feed read flow"></a>
+
+</details>
+
+### **notification-service · `:8085`**
+
+Responsible for storing notifications and pushing them to the browser in real time through Server-Sent Events (SSE).<br>
+*Patterns: real-time push (Server-Sent Events), reactive streams, idempotent consumer, retry with backoff and DLQ*<br>
+*Key dependencies: Spring WebFlux, Project Reactor, Spring Data R2DBC, Spring Security, Spring Kafka, JJWT*
+
+- **Real-time delivery over Server-Sent Events:** Each signed-in browser keeps one long-lived SSE connection. Events consumed from Kafka are pushed through a per-user reactive stream to every open tab: likes, comments and follows as notifications, and new feed posts as a "new posts" indicator. A heartbeat every 25 seconds keeps idle connections open through proxies.
+- **Reactive stack for long-lived connections:** WebFlux and R2DBC serve open SSE connections without dedicating a thread to each connection.
+- **Tokens are not used in URLs:** Since `EventSource` cannot send headers, the client exchanges its JWT for a short-lived, single-use stream ticket.
+- **Server-managed unread state:** The unread count is maintained by the server, and opening the notification panel marks all notifications as read.
+
+### **Kafka**
+
+Responsible for propagating state changes between services.<br>
+*Patterns: Transactional Outbox, at-least-once delivery, retry with exponential backoff, dead letter queue*
+
+- **Prevention of dual writes:** Each business change and its outbox event are committed in the same transaction. A poller publishes pending events and marks them as processed only after broker acknowledgment; during a Kafka outage, events are retained and delivered in order once the broker recovers.
+- **Parallel consumption with per-entity ordering:** Topics are created with 6 partitions and each listener runs 3 consumer threads; message keys route all events of the same post or follower to the same partition.
+- **Idempotent consumers:** Every outbox event carries a unique identifier, and every consumer discards duplicates; `feed.updated` is published directly by feed-service and only triggers live notifications.
+
+<details>
+<summary style="cursor:pointer"><b>Topics and keys</b></summary>
+
+| Topic | Producer | Consumers | Key |
+|---|---|---|---|
+| `user.followed` | user-service | feed-service, notification-service | follower ID |
+| `user.unfollowed` | user-service | feed-service | follower ID |
+| `post.created` | post-service | feed-service | post ID |
+| `post.deleted` | post-service | feed-service | post ID |
+| `post.liked` | post-service | notification-service, post-service counters | post ID |
+| `post.unliked` | post-service | post-service counters | post ID |
+| `comment.created` | post-service | notification-service, post-service counters | post ID |
+| `feed.updated` | feed-service | notification-service | user ID |
+
+</details>
+
+<details>
+<summary style="cursor:pointer"><b>Failure handling</b></summary>
+
+| Failure | Handling |
+|---|---|
+| Processing error | Retried with exponential backoff, then published to the dead letter queue |
+| Malformed message | Published to the dead letter queue immediately, as retrying cannot resolve it |
+| feed-service dependency unavailable (user-service, post-service, Redis) | Retried without a limit, so a temporary outage never moves a valid event to the dead letter queue |
+
+</details>
+
+<details>
+<summary style="cursor:pointer"><b>Delivery and retry flow</b></summary>
+
+<a href="docs/reliability.svg"><img src="docs/reliability.svg" width="760" alt="Reliability"></a>
+
+</details>
+
+### **Redis**
+
+Responsible for storing precomputed feeds and short-lived keys for idempotency and OAuth.<br>
+*Patterns: precomputed read model, atomic Lua script, idempotency key with lease*
+
+- **Feed storage in sorted sets:** Entries are ordered by post time, and the 1,000-entry limit bounds the size of each feed.
+- **Atomic feed insertion:** The feed entry, both reverse indexes and the trim are applied in a single Lua script; therefore an insertion is never left partially applied.
+- **Lease-based idempotency:** An event is claimed for a limited time before processing; if processing fails, the claim is released, and if the consumer crashes, the claim expires. In both cases the event is processed again.
+
+<details>
+<summary style="cursor:pointer"><b>Keys</b></summary>
+
+| Key | Type | Purpose |
+|---|---|---|
+| `feed:{userId}` | Sorted set | User feed ordered by post time, limited to the newest 1,000 IDs |
+| `author_posts_in_feed:{userId}:{authorId}` | Set | Posts of an author within a feed, used for unfollow cleanup |
+| `post_feeds:{postId}` | Set | Feeds containing a post, used for deletion cleanup |
+| `processed_event:feed-service:{eventId}` | String, TTL | Idempotency marker |
+| `oauth:state:{state}` | String, TTL | Single-use sign-in state; the value is the expected nonce |
+
+</details>
+
+### **MongoDB**
+
+Responsible for posts, likes, comments and the post-service outbox.<br>
+*Patterns: document model, multi-document transactions, TTL-based deduplication*
+
+- **Rationale for a document database:** New post types (galleries, polls, link previews) can introduce their own fields without schema migrations, and posts, as the fastest-growing data set, can be sharded by author.
+- **Replica set deployment for transactions:** Multi-document transactions require a replica set; likes, comments and posts are committed together with their outbox events.
+- **Indexing strategy:** A unique index prevents duplicate likes, compound indexes support author and comment queries, and processed event records expire through a TTL index.
+
+### **PostgreSQL**
+
+Two separate instances: `social_db` holds users, the follow graph, refresh tokens and the user-service outbox; `notification_db` holds the notifications of notification-service.<br>
+*Patterns: relational integrity, Transactional Outbox, unique-index deduplication, reactive access (R2DBC)*
+
+- **Rationale for a relational database:** Unique constraints on usernames and emails, a composite primary key for follows and cascading foreign keys guarantee the consistency of the follow graph.
+- **Refresh token family management:** Tokens are stored as hashes grouped by family, and expired tokens are purged on a daily schedule.
+- **Deduplication through unique indexes:** A unique index on the event identifier in notification-service rejects a redelivered event, so the notification is stored only once.
+
+### **Frontend · `:4200`**
+
+Responsible for the user interface as an Angular single-page application, including registration, sign-in with Google, the home feed, the people list, profiles, settings and a real-time notification panel.<br>
+*Patterns: Signals for state management, functional interceptor and guards, reconnect with exponential backoff*<br>
+*Key dependencies: Angular Router, Angular Forms, RxJS*
+
+- **Transparent token refresh:** An interceptor attaches the JWT to each request and, on `401`, refreshes the token and retries the request.
+- **Resilient real-time updates:** When the SSE connection is lost, the client obtains a new ticket and reconnects with exponential backoff.
+
+<details>
+<summary style="cursor:pointer"><h2 id="failure-scenarios" style="display:inline;border-bottom:0;padding-bottom:0"><b>Failure scenarios</b></h2></summary>
+
+The following scenarios were executed manually against the Docker Compose environment, in addition to the unit tests:
+
+| Scenario | Result |
+|---|---|
+| 10 users like the same post concurrently | All requests were accepted; the counter reached exactly 10 |
+| The same event is delivered twice | Stored notifications, counters and feeds remained unchanged |
+| A malformed message is published to `post.liked` | The message was moved to `post.liked.DLQ` without retries |
+| Kafka is stopped during follows and posts | API remained available; events were delivered after restart |
+| user-service is stopped during a feed read | Feed was served from precomputed entries only |
+| post-service is stopped during a feed read | `503` was returned |
+| Redis is stopped during a feed read | `503` was returned within 2 s |
+| Redis is stopped while a post is fanned out | The event was retried until Redis recovered, then delivered to all feeds |
+
+</details>
+
+<details>
+<summary style="cursor:pointer"><h2 id="known-gaps-for-1m-dau" style="display:inline;border-bottom:0;padding-bottom:0"><b>Known gaps for 1M DAU</b></h2></summary>
+
+- **Fan-out throughput:** Fan-out issues one Redis call per follower; pipelining or batching is required for the target fan-out rate.
+- **Outbox throughput:** Each poller publishes at most 100 events per poll and waits for every acknowledgment individually; batched, asynchronous publishing is required.
+- **Multiple outbox poller instances:** Pollers assume a single instance; running several requires row-level locking (`SELECT … FOR UPDATE SKIP LOCKED`) in user-service and atomic claims on the MongoDB outbox in post-service.
+- **Redis Cluster:** Feeds at this scale exceed a single node; the Lua script spans multiple hash slots, and the reverse-index sets (`post_feeds`, `author_posts_in_feed`) are not trimmed together with the feed.
+- **Distributed SSE delivery:** Connections and stream tickets are held in memory; Redis Pub/Sub is required to run several notification-service instances.
+
+</details>
